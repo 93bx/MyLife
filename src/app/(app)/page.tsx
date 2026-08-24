@@ -39,13 +39,16 @@ export default function PlanPage() {
   const [planMessage, setPlanMessage] = useState<string | null>(null);
   const [planBusy, setPlanBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCashPing, setShowCashPing] = useState(false);
+  const [skipBusy, setSkipBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
-    const [tasksRes, moneyRes, profileRes] = await Promise.all([
+    const [tasksRes, moneyRes, profileRes, cashPingRes] = await Promise.all([
       apiJson<{ tasks: TaskRow[] }>("/api/tasks"),
       apiJson<{ balanceSar: number }>("/api/money"),
       apiJson<{ profile: ProfileRow }>("/api/profile"),
+      apiJson<{ showBanner: boolean }>("/api/money/today-cash"),
     ]);
 
     if (tasksRes.ok) setTasks(tasksRes.data.tasks);
@@ -60,6 +63,9 @@ export default function PlanPage() {
     } else {
       setLoadError((prev) => prev ?? profileRes.error);
     }
+
+    if (cashPingRes.ok) setShowCashPing(cashPingRes.data.showBanner);
+    else setShowCashPing(false);
   }, []);
 
   useEffect(() => {
@@ -92,6 +98,15 @@ export default function PlanPage() {
     () => open.filter((t) => t.floating),
     [open],
   );
+
+  async function skipCashPing() {
+    setSkipBusy(true);
+    const res = await apiJson<{ skipped: boolean }>("/api/money/today-cash", {
+      method: "POST",
+    });
+    setSkipBusy(false);
+    if (res.ok) setShowCashPing(false);
+  }
 
   async function runLanguagePlan() {
     setPlanBusy(true);
@@ -178,6 +193,23 @@ export default function PlanPage() {
           </div>
         </div>
       </div>
+
+      {showCashPing ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded border border-amber-600 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          <span>No cash logged today</span>
+          <button
+            type="button"
+            disabled={skipBusy}
+            onClick={() => void skipCashPing()}
+            className="rounded border border-amber-800 px-3 py-1 text-amber-950 disabled:opacity-50"
+          >
+            {skipBusy ? "Skipping…" : "Skip"}
+          </button>
+        </div>
+      ) : null}
 
       {loadError ? (
         <p className="text-sm text-red-700">Load error: {loadError}</p>

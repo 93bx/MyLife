@@ -145,3 +145,8 @@ export const notes = pgTable("notes", {
     .notNull()
     .defaultNow(),
 });
+
+/** Dates the user dismissed the evening “No cash logged today” ping. */
+export const cashPingSkips = pgTable("cash_ping_skips", {
+  date: date("date").primaryKey(),
+});
