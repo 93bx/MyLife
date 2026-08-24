@@ -7,6 +7,27 @@ export type MoneyTask = {
   type: string;
 };
 
+/** Parse Actual SAR from a form field. Rejects blank (Number("") === 0). */
+export function parseActualSarInput(
+  raw: string | undefined | null,
+): { ok: true; value: number } | { ok: false; error: string } {
+  const trimmed = (raw ?? "").trim();
+  if (trimmed === "") {
+    return {
+      ok: false,
+      error: "Actual SAR is required. Enter a finite number.",
+    };
+  }
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) {
+    return {
+      ok: false,
+      error: "Actual SAR must be a finite number.",
+    };
+  }
+  return { ok: true, value };
+}
+
 export function completeMoneyTask(task: MoneyTask, actualSar: number) {
   if (task.resources === "time") {
     throw new Error("time-only tasks cannot post money");

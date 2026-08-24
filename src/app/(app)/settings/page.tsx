@@ -42,9 +42,23 @@ function maskKey(key: string) {
   return `••••${key.slice(-4)}`;
 }
 
+function formFromEndpoint(ep: Endpoint): EndpointForm {
+  return {
+    kind: ep.kind === "aggregator" ? "aggregator" : "provider",
+    name: ep.name,
+    baseUrl: ep.baseUrl,
+    apiKey: ep.apiKey,
+    model: ep.model ?? "",
+    trainsOnPrompts: ep.trainsOnPrompts,
+    enabled: ep.enabled,
+    sortOrder: ep.sortOrder,
+  };
+}
+
 export default function SettingsPage() {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [form, setForm] = useState<EndpointForm>(blankForm());
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [splitBank, setSplitBank] = useState(false);
   const [agentMuted, setAgentMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,20 +100,38 @@ export default function SettingsPage() {
     if (!res.ok) setError(res.error);
   }
 
-  async function addEndpoint() {
+  function startEdit(ep: Endpoint) {
+    setEditingId(ep.id);
+    setForm(formFromEndpoint(ep));
+    setError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(blankForm());
+  }
+
+  async function saveEndpoint() {
     setBusy(true);
-    const res = await apiJson("/api/ai-endpoints", {
-      method: "POST",
-      body: JSON.stringify({
-        ...form,
-        model: form.model || null,
-      }),
-    });
+    const payload = {
+      ...form,
+      model: form.model || null,
+    };
+    const res = editingId
+      ? await apiJson("/api/ai-endpoints", {
+          method: "PATCH",
+          body: JSON.stringify({ id: editingId, ...payload }),
+        })
+      : await apiJson("/api/ai-endpoints", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
     setBusy(false);
     if (!res.ok) {
       setError(res.error);
       return;
     }
+    setEditingId(null);
     setForm(blankForm());
     void load();
   }
@@ -125,6 +157,7 @@ export default function SettingsPage() {
       setError(res.error);
       return;
     }
+    if (editingId === id) cancelEdit();
     void load();
   }
 
@@ -196,6 +229,13 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    onClick={() => startEdit(ep)}
+                    className="rounded border border-neutral-400 px-2 py-1 text-xs"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void toggleEnabled(ep)}
                     className="rounded border border-neutral-400 px-2 py-1 text-xs"
                   >
@@ -216,7 +256,9 @@ export default function SettingsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Add endpoint</h2>
+        <h2 className="text-lg font-medium">
+          {editingId ? "Edit endpoint" : "Add endpoint"}
+        </h2>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
             Kind
@@ -311,14 +353,32 @@ export default function SettingsPage() {
             Enabled
           </label>
         </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void addEndpoint()}
-          className="rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
-        >
-          {busy ? "Adding…" : "Add endpoint"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void saveEndpoint()}
+            className="rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {busy
+              ? editingId
+                ? "Saving…"
+                : "Adding…"
+              : editingId
+                ? "Save changes"
+                : "Add endpoint"}
+          </button>
+          {editingId ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={cancelEdit}
+              className="rounded border border-neutral-400 px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
       </section>
     </main>
   );

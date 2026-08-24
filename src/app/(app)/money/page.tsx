@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { parseActualSarInput } from "@/domain/money";
 import { apiJson } from "@/lib/apiClient";
 
 type TaskRow = {
@@ -74,16 +75,15 @@ export default function MoneyPage() {
   );
 
   async function completePay(id: string) {
-    const raw = amounts[id];
-    const actualSar = Number(raw);
-    if (!Number.isFinite(actualSar)) {
-      setError("Enter a valid SAR amount");
+    const parsed = parseActualSarInput(amounts[id]);
+    if (!parsed.ok) {
+      setError(parsed.error);
       return;
     }
     setBusyId(id);
     const res = await apiJson(`/api/tasks/${id}/complete`, {
       method: "POST",
-      body: JSON.stringify({ actualSar }),
+      body: JSON.stringify({ actualSar: parsed.value }),
     });
     setBusyId(null);
     if (!res.ok) {

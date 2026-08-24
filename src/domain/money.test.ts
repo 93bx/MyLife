@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { completeMoneyTask } from "./money";
+import { completeMoneyTask, parseActualSarInput } from "./money";
+
+describe("parseActualSarInput", () => {
+  it("rejects blank and whitespace (does not coerce to 0)", () => {
+    expect(parseActualSarInput("")).toEqual({
+      ok: false,
+      error: "Actual SAR is required. Enter a finite number.",
+    });
+    expect(parseActualSarInput("   ")).toEqual({
+      ok: false,
+      error: "Actual SAR is required. Enter a finite number.",
+    });
+    expect(parseActualSarInput(undefined)).toEqual({
+      ok: false,
+      error: "Actual SAR is required. Enter a finite number.",
+    });
+  });
+
+  it("rejects non-numeric input", () => {
+    expect(parseActualSarInput("abc").ok).toBe(false);
+  });
+
+  it("accepts finite numbers including zero when explicitly entered", () => {
+    expect(parseActualSarInput("0")).toEqual({ ok: true, value: 0 });
+    expect(parseActualSarInput("1200.5")).toEqual({ ok: true, value: 1200.5 });
+  });
+});
 
 describe("completeMoneyTask", () => {
   it("refuses time-only tasks", () => {
