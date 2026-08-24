@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { partitionSmsFirst } from "@/domain/plan";
+import {
+  overloadWarning,
+  partitionSmsFirst,
+  workdayCapacityMinutes,
+} from "@/domain/plan";
 import { apiJson } from "@/lib/apiClient";
 
 type TaskRow = {
@@ -20,6 +24,16 @@ type TaskRow = {
 type ProfileRow = {
   cashBufferSar: string | null;
   nightsDefaultOn: boolean;
+  workStart: string;
+  workEnd: string;
+};
+
+type PlanWeekRow = {
+  id: string | null;
+  weekStart: string;
+  nightsOn: boolean;
+  intentText: string;
+  overloadWarned: boolean;
 };
 
 function formatSar(n: number | string | null | undefined) {
@@ -33,23 +47,35 @@ export default function PlanPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [balanceSar, setBalanceSar] = useState<number | null>(null);
   const [bufferSar, setBufferSar] = useState<string | null>(null);
+  const [workStart, setWorkStart] = useState("09:30");
+  const [workEnd, setWorkEnd] = useState("17:30");
   const [intentText, setIntentText] = useState("");
   const [nightsOn, setNightsOn] = useState(true);
   const [language, setLanguage] = useState("");
   const [planMessage, setPlanMessage] = useState<string | null>(null);
+  const [weekMessage, setWeekMessage] = useState<string | null>(null);
   const [planBusy, setPlanBusy] = useState(false);
+  const [weekBusy, setWeekBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showCashPing, setShowCashPing] = useState(false);
   const [skipBusy, setSkipBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
-    const [tasksRes, moneyRes, profileRes, cashPingRes] = await Promise.all([
-      apiJson<{ tasks: TaskRow[] }>("/api/tasks"),
-      apiJson<{ balanceSar: number }>("/api/money"),
-      apiJson<{ profile: ProfileRow }>("/api/profile"),
-      apiJson<{ showBanner: boolean }>("/api/money/today-cash"),
-    ]);
+
+    // Spawn recurrence instances before reading tasks so Money/Plan see due items.
+    await apiJson<{ spawned: unknown[] }>("/api/recurrence/spawn", {
+      method: "POST",
+    });
+
+    const [tasksRes, moneyRes, profileRes, cashPingRes, weekRes] =
+      await Promise.all([
+        apiJson<{ tasks: TaskRow[] }>("/api/tasks"),
+        apiJson<{ balanceSar: number }>("/api/money"),
+        apiJson<{ profile: ProfileRow }>("/api/profile"),
+        apiJson<{ showBanner: boolean }>("/api/money/today-cash"),
+        apiJson<{ planWeek: PlanWeekRow }>("/api/plan-weeks"),
+      ]);
 
     if (tasksRes.ok) setTasks(tasksRes.data.tasks);
     else setLoadError(tasksRes.error);
@@ -59,9 +85,20 @@ export default function PlanPage() {
 
     if (profileRes.ok) {
       setBufferSar(profileRes.data.profile.cashBufferSar);
-      setNightsOn(profileRes.data.profile.nightsDefaultOn);
+      setWorkStart(profileRes.data.profile.workStart ?? "09:30");
+      setWorkEnd(profileRes.data.profile.workEnd ?? "17:30");
+      if (!weekRes.ok) {
+        setNightsOn(profileRes.data.profile.nightsDefaultOn);
+      }
     } else {
       setLoadError((prev) => prev ?? profileRes.error);
+    }
+
+    if (weekRes.ok) {
+      setIntentText(weekRes.data.planWeek.intentText ?? "");
+      setNightsOn(weekRes.data.planWeek.nightsOn);
+    } else {
+      setLoadError((prev) => prev ?? weekRes.error);
     }
 
     if (cashPingRes.ok) setShowCashPing(cashPingRes.data.showBanner);
@@ -99,6 +136,18 @@ export default function PlanPage() {
     [open],
   );
 
+  const capacityMinutes = useMemo(
+    () => workdayCapacityMinutes(workStart, workEnd),
+    [workStart, workEnd],
+  );
+
+  const todayEstimateMinutes = useMemo(() => {
+    const scheduled = open.filter((t) => !t.floating);
+    return scheduled.reduce((sum, t) => sum + (t.estimateMinutes ?? 0), 0);
+  }, [open]);
+
+  const showOverload = overloadWarning(todayEstimateMinutes, capacityMinutes);
+
   async function skipCashPing() {
     setSkipBusy(true);
     const res = await apiJson<{ skipped: boolean }>("/api/money/today-cash", {
@@ -106,6 +155,23 @@ export default function PlanPage() {
     });
     setSkipBusy(false);
     if (res.ok) setShowCashPing(false);
+  }
+
+  async function saveWeek() {
+    setWeekBusy(true);
+    setWeekMessage(null);
+    const res = await apiJson<{ planWeek: PlanWeekRow }>("/api/plan-weeks", {
+      method: "PATCH",
+      body: JSON.stringify({ intentText, nightsOn }),
+    });
+    setWeekBusy(false);
+    if (!res.ok) {
+      setWeekMessage(res.error);
+      return;
+    }
+    setIntentText(res.data.planWeek.intentText);
+    setNightsOn(res.data.planWeek.nightsOn);
+    setWeekMessage("Week intent saved.");
   }
 
   async function runLanguagePlan() {
@@ -126,7 +192,11 @@ export default function PlanPage() {
     setPlanBusy(false);
 
     if (!res.ok) {
-      if (res.status === 404) {
+      if (res.status === 403) {
+        setPlanMessage(
+          "Agent is muted in settings. Week intent can still be saved below.",
+        );
+      } else if (res.status === 404) {
         setPlanMessage(
           "Plan agent is not available yet (404). Tasks and balance still work.",
         );
@@ -194,6 +264,17 @@ export default function PlanPage() {
         </div>
       </div>
 
+      {showOverload ? (
+        <div
+          role="status"
+          className="rounded border border-amber-600 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          Today’s estimates ({todayEstimateMinutes} min) exceed workday capacity
+          ({capacityMinutes} min from {workStart}–{workEnd}). No hard cap — you
+          can ignore this.
+        </div>
+      ) : null}
+
       {showCashPing ? (
         <div
           role="status"
@@ -235,6 +316,17 @@ export default function PlanPage() {
           />
           Nights on
         </label>
+        <button
+          type="button"
+          disabled={weekBusy}
+          onClick={() => void saveWeek()}
+          className="rounded border border-neutral-400 bg-white px-3 py-2 text-sm disabled:opacity-50"
+        >
+          {weekBusy ? "Saving…" : "Save week"}
+        </button>
+        {weekMessage ? (
+          <p className="text-sm text-neutral-700">{weekMessage}</p>
+        ) : null}
       </section>
 
       <section className="space-y-3">

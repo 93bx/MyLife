@@ -46,9 +46,11 @@ export default function AgentPage() {
 
     if (!res.ok) {
       setError(
-        res.status === 503
-          ? "All free AI endpoints failed (503)."
-          : res.error,
+        res.status === 403
+          ? "Agent is muted in settings (403)."
+          : res.status === 503
+            ? "All free AI endpoints failed (503)."
+            : res.error,
       );
       return;
     }

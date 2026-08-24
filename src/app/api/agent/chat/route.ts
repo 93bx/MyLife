@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { asc } from "drizzle-orm";
 import { db } from "@/db/client";
-import { aiEndpoints, profiles } from "@/db/schema";
+import { aiEndpoints, profiles, settings } from "@/db/schema";
 import { FreeAiExhaustedError, chatFree } from "@/lib/ai/freeGateway";
 import { filterEndpointsForSlice } from "@/lib/ai/slice";
 import type { AiEndpoint, AiEndpointKind, ChatMessage } from "@/lib/ai/types";
@@ -15,6 +15,14 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "messages array is required" },
       { status: 400 },
+    );
+  }
+
+  const [settingsRow] = await db.select().from(settings).limit(1);
+  if (settingsRow?.agentMuted) {
+    return NextResponse.json(
+      { error: "Agent is muted in settings" },
+      { status: 403 },
     );
   }
 

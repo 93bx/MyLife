@@ -6,6 +6,7 @@ import {
   planWeeks,
   profiles,
   projects,
+  settings,
   tasks,
   transactions,
 } from "@/db/schema";
@@ -123,6 +124,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
   }
 
+  const [settingsRow] = await db.select().from(settings).limit(1);
+  if (settingsRow?.agentMuted) {
+    return NextResponse.json(
+      { error: "Agent is muted in settings" },
+      { status: 403 },
+    );
+  }
+
   const scopeIn: PlanScope =
     body.scope === "week" || body.scope === "day" || body.scope === "auto"
       ? body.scope
@@ -183,7 +192,8 @@ export async function POST(request: Request) {
       enabled: e.enabled,
     }));
 
-  const filtered = filterEndpointsForSlice(endpoints, "general", allowTrain);
+  // Plan prompt includes cash balance — money slice never hits trainsOnPrompts.
+  const filtered = filterEndpointsForSlice(endpoints, "money", allowTrain);
   const messages = buildPlanAgentMessages(
     {
       scope,
