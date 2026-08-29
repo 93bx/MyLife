@@ -45,23 +45,23 @@ export default async function LoginPage({
         : null;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-4">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-bg px-4 text-text">
       <h1 className="text-3xl font-semibold tracking-tight">MyLife</h1>
       <form action={loginAction} className="flex w-full max-w-sm flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-text-muted">
           Password
           <input
             type="password"
             name="password"
             required
             autoFocus
-            className="rounded border border-neutral-400 bg-white px-3 py-2"
+            className="rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent"
           />
         </label>
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="text-sm text-danger">{error}</p> : null}
         <button
           type="submit"
-          className="rounded bg-neutral-900 px-3 py-2 text-sm text-white"
+          className="rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text"
         >
           Sign in
         </button>
