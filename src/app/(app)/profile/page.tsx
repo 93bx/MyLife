@@ -51,6 +51,17 @@ function str(v: string | null | undefined) {
   return v ?? "";
 }
 
+const moneyKeys = new Set([
+  "salarySar",
+  "rentShareYearlySar",
+  "billsShareMinSar",
+  "billsShareMaxSar",
+  "iqamaYearlySar",
+  "cashBufferSar",
+  "workStart",
+  "workEnd",
+]);
+
 export default function ProfilePage() {
   const [form, setForm] = useState<ProfileForm>(empty);
   const [error, setError] = useState<string | null>(null);
@@ -126,17 +137,20 @@ export default function ProfilePage() {
     setSaved(true);
   }
 
+  const fieldClass =
+    "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent";
+
   return (
     <main className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-text-muted">
           Person facts — salary, buffer, hours, geo, payouts.
         </p>
       </div>
 
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      {saved ? <p className="text-sm text-green-700">Saved.</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {saved ? <p className="text-sm text-accent">Saved.</p> : null}
 
       <div className="grid gap-3 md:grid-cols-2">
         {(
@@ -158,32 +172,32 @@ export default function ProfilePage() {
             ["payoutMethods", "Payout methods (JSON)"],
           ] as const
         ).map(([key, label]) => (
-          <label key={key} className="flex flex-col gap-1 text-sm">
+          <label key={key} className="flex flex-col gap-1 text-sm text-text-muted">
             {label}
             {key === "summary" || key === "payoutMethods" ? (
               <textarea
                 value={form[key]}
                 onChange={(e) => setField(key, e.target.value)}
                 rows={key === "summary" ? 4 : 2}
-                className="rounded border border-neutral-400 bg-white px-3 py-2"
+                className={`${fieldClass}${key === "payoutMethods" ? " font-mono" : ""}`}
               />
             ) : (
               <input
                 value={form[key]}
                 onChange={(e) => setField(key, e.target.value)}
-                className="rounded border border-neutral-400 bg-white px-3 py-2"
+                className={`${fieldClass}${moneyKeys.has(key) ? " font-mono" : ""}`}
               />
             )}
           </label>
         ))}
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-text-muted">
           Notice days
           <input
             type="number"
             value={form.noticeDays}
             onChange={(e) => setField("noticeDays", Number(e.target.value))}
-            className="rounded border border-neutral-400 bg-white px-3 py-2"
+            className={`${fieldClass} font-mono`}
           />
         </label>
 
@@ -219,7 +233,7 @@ export default function ProfilePage() {
         type="button"
         disabled={busy}
         onClick={() => void save()}
-        className="rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
+        className="rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50"
       >
         {busy ? "Saving…" : "Save profile"}
       </button>

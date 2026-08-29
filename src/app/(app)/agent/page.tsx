@@ -70,23 +70,23 @@ export default function AgentPage() {
     <main className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Agent</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-text-muted">
           Free-tier chat via server-side chatFree. API keys stay on the server.
         </p>
       </div>
 
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      <div className="space-y-3 border border-neutral-300 p-3">
+      <div className="space-y-3 border border-border bg-bg-elevated p-3">
         {log.length === 0 ? (
-          <p className="text-sm text-neutral-500">No messages yet.</p>
+          <p className="text-sm text-text-muted">No messages yet.</p>
         ) : (
           log.map((entry) => (
             <div key={entry.id} className="text-sm">
               <div className="font-medium capitalize">{entry.role}</div>
               <p className="whitespace-pre-wrap">{entry.content}</p>
               {entry.usedEndpointName ? (
-                <p className="text-xs text-neutral-500">
+                <p className="font-mono text-xs text-text-muted">
                   usedEndpointName: {entry.usedEndpointName}
                 </p>
               ) : null}
@@ -95,13 +95,13 @@ export default function AgentPage() {
         )}
       </div>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-sm text-text-muted">
         Message
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           rows={4}
-          className="rounded border border-neutral-400 bg-white px-3 py-2"
+          className="rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent"
           placeholder="Ask the agent…"
         />
       </label>
@@ -109,7 +109,7 @@ export default function AgentPage() {
         type="button"
         disabled={busy || !input.trim()}
         onClick={() => void send()}
-        className="rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
+        className="rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50"
       >
         {busy ? "Sending…" : "Send"}
       </button>

@@ -97,40 +97,41 @@ export default function MoneyPage() {
     <main className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Money</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-text-muted">
           Balance, transactions, and confirm actual SAR on money tasks (M2).
         </p>
       </div>
 
       <p className="text-lg">
         Balance:{" "}
-        <strong>
+        <strong className="font-mono">
           {balanceSar === null
             ? "…"
             : `${balanceSar.toLocaleString(undefined, { maximumFractionDigits: 2 })} SAR`}
         </strong>
       </p>
 
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Due money tasks</h2>
         {dueMoney.length === 0 ? (
-          <p className="text-sm text-neutral-500">None open.</p>
+          <p className="text-sm text-text-muted">None open.</p>
         ) : (
           <ul className="space-y-3">
             {dueMoney.map((t) => (
               <li
                 key={t.id}
-                className="flex flex-wrap items-end gap-3 border border-neutral-300 px-3 py-3 text-sm"
+                className="flex flex-wrap items-end gap-3 border border-border bg-bg-elevated px-3 py-3 text-sm"
               >
                 <div className="min-w-[12rem] flex-1">
                   <div className="font-medium">{t.title}</div>
-                  <div className="text-neutral-500">
-                    {t.type} · planned {t.plannedSar ?? "—"} SAR
+                  <div className="text-text-muted">
+                    {t.type} · planned{" "}
+                    <span className="font-mono">{t.plannedSar ?? "—"}</span> SAR
                   </div>
                 </div>
-                <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-1 text-text-muted">
                   Actual SAR
                   <input
                     type="number"
@@ -142,14 +143,14 @@ export default function MoneyPage() {
                         [t.id]: e.target.value,
                       }))
                     }
-                    className="w-32 rounded border border-neutral-400 bg-white px-2 py-1"
+                    className="w-32 rounded border border-border bg-bg px-2 py-1 font-mono text-text outline-none focus:border-accent"
                   />
                 </label>
                 <button
                   type="button"
                   disabled={busyId === t.id}
                   onClick={() => void completePay(t.id)}
-                  className="rounded bg-neutral-900 px-3 py-2 text-white disabled:opacity-50"
+                  className="rounded bg-accent px-3 py-2 font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50"
                 >
                   Complete
                 </button>
@@ -161,9 +162,9 @@ export default function MoneyPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Transactions</h2>
-        <ul className="divide-y divide-neutral-200 border border-neutral-300">
+        <ul className="divide-y divide-border border border-border">
           {transactions.length === 0 ? (
-            <li className="px-3 py-4 text-sm text-neutral-500">
+            <li className="px-3 py-4 text-sm text-text-muted">
               No transactions yet.
             </li>
           ) : (
@@ -173,10 +174,11 @@ export default function MoneyPage() {
                 className="flex flex-wrap justify-between gap-2 px-3 py-2 text-sm"
               >
                 <span>
-                  {tx.direction} {tx.amountSar} SAR
+                  {tx.direction}{" "}
+                  <span className="font-mono">{tx.amountSar}</span> SAR
                   {tx.category ? ` · ${tx.category}` : ""}
                 </span>
-                <span className="text-neutral-500">
+                <span className="font-mono text-text-muted">
                   {new Date(tx.at).toLocaleString()}
                 </span>
               </li>

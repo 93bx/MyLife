@@ -36,21 +36,21 @@ export default function ProjectsPage() {
     <main className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-text-muted">
           Delivery and opportunity projects.
         </p>
       </div>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <ul className="divide-y divide-neutral-200 border border-neutral-300">
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      <ul className="divide-y divide-border border border-border">
         {projects.length === 0 ? (
-          <li className="px-3 py-4 text-sm text-neutral-500">
-            No projects yet.
+          <li className="px-3 py-4 text-sm text-text-muted">
+            None yet — create when ready
           </li>
         ) : (
           projects.map((p) => (
             <li key={p.id} className="px-3 py-3 text-sm">
               <div className="font-medium">{p.title}</div>
-              <div className="text-neutral-500">
+              <div className="text-text-muted">
                 {p.kind} · {p.origin} · stage {p.stage}
                 {p.opportunitySubtype ? ` · ${p.opportunitySubtype}` : ""}
               </div>

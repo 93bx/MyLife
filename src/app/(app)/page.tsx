@@ -221,7 +221,7 @@ export default function PlanPage() {
 
   function renderTaskIds(ids: { id: string }[]) {
     if (ids.length === 0) {
-      return <p className="text-sm text-neutral-500">None</p>;
+      return <p className="text-sm text-text-muted">None</p>;
     }
     return (
       <ul className="space-y-1 text-sm">
@@ -231,9 +231,14 @@ export default function PlanPage() {
           return (
             <li key={id} className="flex flex-wrap gap-x-2">
               <span className="font-medium">{t.title}</span>
-              <span className="text-neutral-500">
+              <span className="text-text-muted">
                 {t.type} · {t.priority}
-                {t.estimateMinutes != null ? ` · ${t.estimateMinutes}m` : ""}
+                {t.estimateMinutes != null ? (
+                  <>
+                    {" · "}
+                    <span className="font-mono">{t.estimateMinutes}m</span>
+                  </>
+                ) : null}
               </span>
             </li>
           );
@@ -242,24 +247,28 @@ export default function PlanPage() {
     );
   }
 
+  const fieldClass =
+    "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent";
+
   return (
     <main className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Plan</h1>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-text-muted">
             Week intent, today (SMS then extra), floating pool.
           </p>
         </div>
-        <div className="rounded border border-neutral-300 bg-neutral-50 px-4 py-3 text-sm">
+        <div className="rounded border border-border bg-bg-elevated px-4 py-3 text-sm">
           <div>
             Cash balance:{" "}
-            <strong>
+            <strong className="font-mono">
               {balanceSar === null ? "…" : formatSar(balanceSar)}
             </strong>
           </div>
           <div>
-            Buffer: <strong>{formatSar(bufferSar)}</strong>
+            Buffer:{" "}
+            <strong className="font-mono">{formatSar(bufferSar)}</strong>
           </div>
         </div>
       </div>
@@ -267,25 +276,30 @@ export default function PlanPage() {
       {showOverload ? (
         <div
           role="status"
-          className="rounded border border-amber-600 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          className="rounded border border-warning bg-bg-elevated px-4 py-3 text-sm text-warning"
         >
-          Today’s estimates ({todayEstimateMinutes} min) exceed workday capacity
-          ({capacityMinutes} min from {workStart}–{workEnd}). No hard cap — you
-          can ignore this.
+          Today’s estimates (
+          <span className="font-mono">{todayEstimateMinutes}</span> min) exceed
+          workday capacity (
+          <span className="font-mono">{capacityMinutes}</span> min from{" "}
+          <span className="font-mono">
+            {workStart}–{workEnd}
+          </span>
+          ). No hard cap — you can ignore this.
         </div>
       ) : null}
 
       {showCashPing ? (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded border border-amber-600 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          className="flex flex-wrap items-center justify-between gap-3 rounded border border-warning bg-bg-elevated px-4 py-3 text-sm text-warning"
         >
           <span>No cash logged today</span>
           <button
             type="button"
             disabled={skipBusy}
             onClick={() => void skipCashPing()}
-            className="rounded border border-amber-800 px-3 py-1 text-amber-950 disabled:opacity-50"
+            className="rounded border border-warning px-3 py-1 text-warning hover:bg-bg disabled:opacity-50"
           >
             {skipBusy ? "Skipping…" : "Skip"}
           </button>
@@ -293,18 +307,18 @@ export default function PlanPage() {
       ) : null}
 
       {loadError ? (
-        <p className="text-sm text-red-700">Load error: {loadError}</p>
+        <p className="text-sm text-danger">Load error: {loadError}</p>
       ) : null}
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Week</h2>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-text-muted">
           Intent
           <textarea
             value={intentText}
             onChange={(e) => setIntentText(e.target.value)}
             rows={3}
-            className="rounded border border-neutral-400 bg-white px-3 py-2"
+            className={fieldClass}
             placeholder="What should this week optimize for?"
           />
         </label>
@@ -320,12 +334,12 @@ export default function PlanPage() {
           type="button"
           disabled={weekBusy}
           onClick={() => void saveWeek()}
-          className="rounded border border-neutral-400 bg-white px-3 py-2 text-sm disabled:opacity-50"
+          className="rounded border border-border bg-bg-elevated px-3 py-2 text-sm hover:border-accent disabled:opacity-50"
         >
           {weekBusy ? "Saving…" : "Save week"}
         </button>
         {weekMessage ? (
-          <p className="text-sm text-neutral-700">{weekMessage}</p>
+          <p className="text-sm text-text-muted">{weekMessage}</p>
         ) : null}
       </section>
 
@@ -335,19 +349,19 @@ export default function PlanPage() {
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
           rows={3}
-          className="w-full rounded border border-neutral-400 bg-white px-3 py-2 text-sm"
+          className={`w-full text-sm ${fieldClass}`}
           placeholder="Describe week or day changes in plain language…"
         />
         <button
           type="button"
           disabled={planBusy || !language.trim()}
           onClick={() => void runLanguagePlan()}
-          className="rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
+          className="rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50"
         >
           {planBusy ? "Sending…" : "Apply language"}
         </button>
         {planMessage ? (
-          <p className="text-sm text-neutral-700">{planMessage}</p>
+          <p className="text-sm text-text-muted">{planMessage}</p>
         ) : null}
       </section>
 
@@ -361,13 +375,13 @@ export default function PlanPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-medium">Floating pool</h2>
           {floatingPool.length === 0 ? (
-            <p className="text-sm text-neutral-500">None</p>
+            <p className="text-sm text-text-muted">None</p>
           ) : (
             <ul className="space-y-1 text-sm">
               {floatingPool.map((t) => (
                 <li key={t.id} className="flex flex-wrap gap-x-2">
                   <span className="font-medium">{t.title}</span>
-                  <span className="text-neutral-500">
+                  <span className="text-text-muted">
                     {t.type} · {t.priority}
                   </span>
                 </li>

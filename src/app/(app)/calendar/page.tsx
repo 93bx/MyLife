@@ -54,25 +54,27 @@ export default function CalendarPage() {
     <main className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-text-muted">
           Scheduled (non-floating) tasks by deadline. No Google in v1.
         </p>
       </div>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
       {grouped.length === 0 ? (
-        <p className="text-sm text-neutral-500">No scheduled tasks.</p>
+        <p className="text-sm text-text-muted">No scheduled tasks.</p>
       ) : (
         <div className="space-y-6">
           {grouped.map(([day, list]) => (
             <section key={day} className="space-y-2">
-              <h2 className="text-lg font-medium">{day}</h2>
+              <h2 className="font-mono text-lg font-medium">{day}</h2>
               <ul className="space-y-1 text-sm">
                 {list.map((t) => (
                   <li key={t.id} className="flex flex-wrap gap-x-2">
                     <span className="font-medium">{t.title}</span>
-                    <span className="text-neutral-500">
+                    <span className="text-text-muted">
                       {t.status} · {t.type} · {t.priority} ·{" "}
-                      {new Date(t.deadline!).toLocaleTimeString()}
+                      <span className="font-mono">
+                        {new Date(t.deadline!).toLocaleTimeString()}
+                      </span>
                     </span>
                   </li>
                 ))}

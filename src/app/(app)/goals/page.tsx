@@ -31,17 +31,19 @@ export default function GoalsPage() {
     <main className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Goals</h1>
-        <p className="text-sm text-neutral-600">Active and inactive goals.</p>
+        <p className="text-sm text-text-muted">Active and inactive goals.</p>
       </div>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <ul className="divide-y divide-neutral-200 border border-neutral-300">
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      <ul className="divide-y divide-border border border-border">
         {goals.length === 0 ? (
-          <li className="px-3 py-4 text-sm text-neutral-500">No goals yet.</li>
+          <li className="px-3 py-4 text-sm text-text-muted">
+            None yet — create when ready
+          </li>
         ) : (
           goals.map((g) => (
             <li key={g.id} className="px-3 py-3 text-sm">
               <div className="font-medium">{g.title}</div>
-              <div className="text-neutral-500">
+              <div className="text-text-muted">
                 {g.active ? "active" : "inactive"}
               </div>
             </li>

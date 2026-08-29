@@ -53,14 +53,14 @@ export default function TasksPage() {
     <main className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-text-muted">
           All tasks. Money completions belong on Money (confirm SAR).
         </p>
       </div>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <ul className="divide-y divide-neutral-200 border border-neutral-300">
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      <ul className="divide-y divide-border border border-border">
         {tasks.length === 0 ? (
-          <li className="px-3 py-4 text-sm text-neutral-500">No tasks yet.</li>
+          <li className="px-3 py-4 text-sm text-text-muted">No tasks yet.</li>
         ) : (
           tasks.map((t) => (
             <li
@@ -69,10 +69,15 @@ export default function TasksPage() {
             >
               <div>
                 <div className="font-medium">{t.title}</div>
-                <div className="text-neutral-500">
+                <div className="text-text-muted">
                   {t.status} · {t.type} · {t.priority} · {t.resources}
                   {t.floating ? " · floating" : ""}
-                  {t.plannedSar != null ? ` · planned ${t.plannedSar} SAR` : ""}
+                  {t.plannedSar != null ? (
+                    <>
+                      {" · planned "}
+                      <span className="font-mono">{t.plannedSar}</span> SAR
+                    </>
+                  ) : null}
                 </div>
               </div>
               {t.status === "open" && t.resources === "time" ? (
@@ -80,7 +85,7 @@ export default function TasksPage() {
                   type="button"
                   disabled={busyId === t.id}
                   onClick={() => void completeTimeTask(t.id)}
-                  className="rounded border border-neutral-400 px-2 py-1 text-xs disabled:opacity-50"
+                  className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated disabled:opacity-50"
                 >
                   Complete
                 </button>

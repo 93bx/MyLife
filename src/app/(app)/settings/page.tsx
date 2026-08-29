@@ -55,6 +55,9 @@ function formFromEndpoint(ep: Endpoint): EndpointForm {
   };
 }
 
+const fieldClass =
+  "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent";
+
 export default function SettingsPage() {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [form, setForm] = useState<EndpointForm>(blankForm());
@@ -165,13 +168,13 @@ export default function SettingsPage() {
     <main className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-text-muted">
           Free AI endpoint pool and machine flags. Seed starts empty — paste
           keys here.
         </p>
       </div>
 
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <section className="space-y-2">
         <h2 className="text-lg font-medium">Flags</h2>
@@ -201,9 +204,9 @@ export default function SettingsPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">AI endpoints</h2>
-        <ul className="divide-y divide-neutral-200 border border-neutral-300">
+        <ul className="divide-y divide-border border border-border">
           {endpoints.length === 0 ? (
-            <li className="px-3 py-4 text-sm text-neutral-500">
+            <li className="px-3 py-4 text-sm text-text-muted">
               No endpoints yet. Add providers and aggregators below.
             </li>
           ) : (
@@ -215,13 +218,14 @@ export default function SettingsPage() {
                 <div>
                   <div className="font-medium">
                     {ep.name}{" "}
-                    <span className="font-normal text-neutral-500">
+                    <span className="font-normal text-text-muted">
                       ({ep.kind})
                     </span>
                   </div>
-                  <div className="text-neutral-500">
+                  <div className="text-text-muted">
                     {ep.baseUrl} · model {ep.model ?? "—"} · key{" "}
-                    {maskKey(ep.apiKey)} · sort {ep.sortOrder}
+                    <span className="font-mono">{maskKey(ep.apiKey)}</span> ·
+                    sort <span className="font-mono">{ep.sortOrder}</span>
                     {ep.trainsOnPrompts ? " · trains" : ""}
                     {ep.enabled ? "" : " · disabled"}
                   </div>
@@ -230,21 +234,21 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => startEdit(ep)}
-                    className="rounded border border-neutral-400 px-2 py-1 text-xs"
+                    className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => void toggleEnabled(ep)}
-                    className="rounded border border-neutral-400 px-2 py-1 text-xs"
+                    className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated"
                   >
                     {ep.enabled ? "Disable" : "Enable"}
                   </button>
                   <button
                     type="button"
                     onClick={() => void removeEndpoint(ep.id)}
-                    className="rounded border border-red-400 px-2 py-1 text-xs text-red-700"
+                    className="rounded border border-danger px-2 py-1 text-xs text-danger"
                   >
                     Delete
                   </button>
@@ -260,7 +264,7 @@ export default function SettingsPage() {
           {editingId ? "Edit endpoint" : "Add endpoint"}
         </h2>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-text-muted">
             Kind
             <select
               value={form.kind}
@@ -270,52 +274,52 @@ export default function SettingsPage() {
                   kind: e.target.value as "provider" | "aggregator",
                 }))
               }
-              className="rounded border border-neutral-400 bg-white px-3 py-2"
+              className={fieldClass}
             >
               <option value="provider">provider</option>
               <option value="aggregator">aggregator</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-text-muted">
             Name
             <input
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="rounded border border-neutral-400 bg-white px-3 py-2"
+              className={fieldClass}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-text-muted">
             Base URL
             <input
               value={form.baseUrl}
               onChange={(e) =>
                 setForm((f) => ({ ...f, baseUrl: e.target.value }))
               }
-              className="rounded border border-neutral-400 bg-white px-3 py-2"
+              className={`${fieldClass} font-mono`}
               placeholder="https://api.example.com/v1"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-text-muted">
             API key
             <input
               value={form.apiKey}
               onChange={(e) =>
                 setForm((f) => ({ ...f, apiKey: e.target.value }))
               }
-              className="rounded border border-neutral-400 bg-white px-3 py-2"
+              className={`${fieldClass} font-mono`}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-text-muted">
             Model
             <input
               value={form.model}
               onChange={(e) =>
                 setForm((f) => ({ ...f, model: e.target.value }))
               }
-              className="rounded border border-neutral-400 bg-white px-3 py-2"
+              className={`${fieldClass} font-mono`}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm text-text-muted">
             Sort order
             <input
               type="number"
@@ -326,7 +330,7 @@ export default function SettingsPage() {
                   sortOrder: Number(e.target.value),
                 }))
               }
-              className="rounded border border-neutral-400 bg-white px-3 py-2"
+              className={`${fieldClass} font-mono`}
             />
           </label>
           <label className="flex items-center gap-2 text-sm">
@@ -358,7 +362,7 @@ export default function SettingsPage() {
             type="button"
             disabled={busy}
             onClick={() => void saveEndpoint()}
-            className="rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
+            className="rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50"
           >
             {busy
               ? editingId
@@ -373,7 +377,7 @@ export default function SettingsPage() {
               type="button"
               disabled={busy}
               onClick={cancelEdit}
-              className="rounded border border-neutral-400 px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded border border-border px-3 py-2 text-sm hover:bg-bg-elevated disabled:opacity-50"
             >
               Cancel
             </button>
