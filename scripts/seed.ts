@@ -1,36 +1,21 @@
 /**
- * Seed Profile, SMS delivery projects, goals, and money recurrence templates.
+ * Seed Profile and money recurrence templates only.
  *
  * Values come from design spec §2 (docs/superpowers/specs/2026-08-24-mylife-design.md)
  * and are editable in Profile after seed — not hardcoded app constants.
  *
+ * Does not seed projects or goals; create those in the app.
+ *
  * Run: npx tsx scripts/seed.ts
  *
  * Idempotent: skips inserts when a singleton profile already exists, and when
- * projects / goals / templates already exist by title.
+ * templates already exist by title.
  */
 import "dotenv/config";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import {
-  goals,
-  profiles,
-  projects,
-  recurrenceTemplates,
-} from "../src/db/schema";
-
-const SMS_PROJECTS = [
-  "Tijarah 360",
-  "KAU labs",
-  "Mawani BCM",
-  "Moktamel",
-] as const;
-
-const STARTER_GOALS = [
-  "Build cash buffer",
-  "Remote pay from abroad",
-] as const;
+import { profiles, recurrenceTemplates } from "../src/db/schema";
 
 const TEMPLATES = [
   {
@@ -109,38 +94,6 @@ async function main() {
       console.log("Profile already exists — skipped");
     }
 
-    for (const title of SMS_PROJECTS) {
-      const found = await db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.title, title))
-        .limit(1);
-      if (found.length === 0) {
-        await db.insert(projects).values({
-          title,
-          kind: "delivery",
-          origin: "sms",
-        });
-        console.log(`Inserted project: ${title}`);
-      } else {
-        console.log(`Project exists — skipped: ${title}`);
-      }
-    }
-
-    for (const title of STARTER_GOALS) {
-      const found = await db
-        .select({ id: goals.id })
-        .from(goals)
-        .where(eq(goals.title, title))
-        .limit(1);
-      if (found.length === 0) {
-        await db.insert(goals).values({ title, active: true });
-        console.log(`Inserted goal: ${title}`);
-      } else {
-        console.log(`Goal exists — skipped: ${title}`);
-      }
-    }
-
     for (const t of TEMPLATES) {
       const found = await db
         .select({ id: recurrenceTemplates.id })
@@ -161,9 +114,6 @@ async function main() {
         console.log(`Template exists — skipped: ${t.title}`);
       }
     }
-
-    const projectRows = await db.select({ id: projects.id }).from(projects);
-    console.log(`projects count: ${projectRows.length}`);
   } finally {
     await client.end({ timeout: 5 });
   }
