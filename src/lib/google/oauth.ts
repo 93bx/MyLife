@@ -14,7 +14,10 @@ function getOAuthClient() {
 export function buildAuthUrl(state: string): string {
   return getOAuthClient().generateAuthUrl({
     access_type: "offline",
-    scope: [GOOGLE_CALENDAR_SCOPE],
+    scope: [
+      GOOGLE_CALENDAR_SCOPE,
+      "https://www.googleapis.com/auth/userinfo.email",
+    ],
     state,
     prompt: "consent",
   });
