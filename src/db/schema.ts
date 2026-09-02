@@ -150,3 +150,44 @@ export const notes = pgTable("notes", {
 export const cashPingSkips = pgTable("cash_ping_skips", {
   date: date("date").primaryKey(),
 });
+
+export const googleAccounts = pgTable("google_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  refreshTokenEnc: text("refresh_token_enc").notNull(),
+  connectedAt: timestamp("connected_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const googleCalendarSelections = pgTable("google_calendar_selections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  calendarId: text("calendar_id").notNull().unique(),
+  summary: text("summary").notNull().default(""),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  selected: boolean("selected").notNull().default(false),
+});
+
+export const calendarBlocks = pgTable("calendar_blocks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+  endAt: timestamp("end_at", { withTimezone: true }).notNull(),
+  taskId: uuid("task_id").references(() => tasks.id),
+  googleEventId: text("google_event_id"),
+  googleCalendarId: text("google_calendar_id"),
+  ownedByApp: boolean("owned_by_app").notNull().default(true),
+  dirty: boolean("dirty").notNull().default(true),
+  foreignSummary: text("foreign_summary"),
+  foreignStartAt: timestamp("foreign_start_at", { withTimezone: true }),
+  foreignEndAt: timestamp("foreign_end_at", { withTimezone: true }),
+  mirrored: boolean("mirrored").notNull().default(false),
+});
+
+export const googleSyncState = pgTable("google_sync_state", {
+  calendarId: text("calendar_id").primaryKey(),
+  syncToken: text("sync_token"),
+  channelId: text("channel_id"),
+  resourceId: text("resource_id"),
+  channelExpiration: timestamp("channel_expiration", { withTimezone: true }),
+});
