@@ -83,6 +83,14 @@ function isSyncTokenGone(err: unknown): boolean {
   return e.code === 410 || e.response?.status === 410;
 }
 
+function isNotFound(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) {
+    return false;
+  }
+  const e = err as { code?: number; response?: { status?: number } };
+  return e.code === 404 || e.response?.status === 404;
+}
+
 async function getSyncState(calendarId: string) {
   const [row] = await db
     .select()
@@ -362,32 +370,46 @@ export async function pushDirtyBlocks(): Promise<void> {
         end: block.endAt.toISOString(),
       });
 
-      if (block.googleEventId) {
-        await patchEvent(
-          client,
-          block.googleCalendarId,
-          block.googleEventId,
-          payload,
-        );
-        await db
-          .update(calendarBlocks)
-          .set({ dirty: false })
-          .where(eq(calendarBlocks.id, block.id));
-      } else {
-        const created = await insertEvent(
-          client,
-          block.googleCalendarId,
-          payload,
-        );
-        if (created.id) {
+      let eventId = block.googleEventId;
+      if (eventId) {
+        try {
+          await patchEvent(
+            client,
+            block.googleCalendarId,
+            eventId,
+            payload,
+          );
           await db
             .update(calendarBlocks)
-            .set({ googleEventId: created.id, dirty: false })
+            .set({ dirty: false })
+            .where(eq(calendarBlocks.id, block.id));
+          continue;
+        } catch (err) {
+          if (!isNotFound(err)) {
+            throw err;
+          }
+          // Stale id after Google delete + full sync (showDeleted:false).
+          eventId = null;
+          await db
+            .update(calendarBlocks)
+            .set({ googleEventId: null })
             .where(eq(calendarBlocks.id, block.id));
         }
       }
+
+      const created = await insertEvent(
+        client,
+        block.googleCalendarId,
+        payload,
+      );
+      if (created.id) {
+        await db
+          .update(calendarBlocks)
+          .set({ googleEventId: created.id, dirty: false })
+          .where(eq(calendarBlocks.id, block.id));
+      }
     } catch {
-      // One failure (e.g. 404) must not abort the remaining dirty queue.
+      // One failure must not abort the remaining dirty queue.
     }
   }
 }

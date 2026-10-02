@@ -247,7 +247,52 @@ describe("pushDirtyBlocks", () => {
     mocks.getAccessToken.mockResolvedValue("access-token");
   });
 
-  it("continues queue when one patch throws and skips dirty=false on insert without id", async () => {
+  it("on patch 404 clears googleEventId and re-inserts owned event", async () => {
+    const blocks = [
+      {
+        id: "b1",
+        title: "A",
+        startAt: new Date("2026-09-01T10:00:00Z"),
+        endAt: new Date("2026-09-01T11:00:00Z"),
+        googleCalendarId: "cal-1",
+        googleEventId: "dead-id",
+        dirty: true,
+        ownedByApp: true,
+        mirrored: false,
+      },
+    ];
+
+    mocks.dbSelect
+      .mockReturnValueOnce(selectChain([{ refreshTokenEnc: "enc" }]))
+      .mockReturnValueOnce(selectChain(blocks));
+
+    mocks.patchEvent.mockRejectedValueOnce({ code: 404 });
+    mocks.insertEvent.mockResolvedValueOnce({ id: "fresh-id" });
+
+    const updates: ReturnType<typeof updateChain>[] = [];
+    mocks.dbUpdate.mockImplementation(() => {
+      const chain = updateChain();
+      updates.push(chain);
+      return chain;
+    });
+
+    await pushDirtyBlocks();
+
+    expect(mocks.patchEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.insertEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.insertEvent.mock.calls[0]?.[2]).toMatchObject({
+      summary: "A",
+      extendedProperties: { private: { ownedByApp: "1" } },
+    });
+
+    const setPayloads = updates.map((u) => u._set);
+    expect(setPayloads).toEqual([
+      { googleEventId: null },
+      { googleEventId: "fresh-id", dirty: false },
+    ]);
+  });
+
+  it("continues queue when one non-404 patch throws and skips dirty=false on insert without id", async () => {
     const blocks = [
       {
         id: "b1",
@@ -289,7 +334,7 @@ describe("pushDirtyBlocks", () => {
       .mockReturnValueOnce(selectChain(blocks));
 
     mocks.patchEvent
-      .mockRejectedValueOnce({ code: 404 })
+      .mockRejectedValueOnce({ code: 500 })
       .mockResolvedValueOnce({ id: "ok-id" });
     mocks.insertEvent.mockResolvedValueOnce({});
 
