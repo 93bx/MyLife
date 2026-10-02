@@ -115,6 +115,17 @@ async function clearSyncToken(calendarId: string) {
     .where(eq(googleSyncState.calendarId, calendarId));
 }
 
+async function clearMirroredForCalendar(calendarId: string) {
+  await db
+    .delete(calendarBlocks)
+    .where(
+      and(
+        eq(calendarBlocks.googleCalendarId, calendarId),
+        eq(calendarBlocks.mirrored, true),
+      ),
+    );
+}
+
 async function deleteMirroredEvent(calendarId: string, eventId: string) {
   await db
     .delete(calendarBlocks)
@@ -123,6 +134,19 @@ async function deleteMirroredEvent(calendarId: string, eventId: string) {
         eq(calendarBlocks.googleEventId, eventId),
         eq(calendarBlocks.googleCalendarId, calendarId),
         eq(calendarBlocks.mirrored, true),
+      ),
+    );
+}
+
+async function unlinkCancelledOwnedEvent(calendarId: string, eventId: string) {
+  await db
+    .update(calendarBlocks)
+    .set({ googleEventId: null, dirty: true })
+    .where(
+      and(
+        eq(calendarBlocks.googleEventId, eventId),
+        eq(calendarBlocks.googleCalendarId, calendarId),
+        eq(calendarBlocks.mirrored, false),
       ),
     );
 }
@@ -207,7 +231,7 @@ async function updateOwnedBlockFromGoogle(
     )
     .limit(1);
 
-  if (!owned) {
+  if (!owned || owned.dirty) {
     return;
   }
 
@@ -232,6 +256,7 @@ async function processPulledEvents(
 
     if (event.status === "cancelled") {
       await deleteMirroredEvent(calendarId, event.id);
+      await unlinkCancelledOwnedEvent(calendarId, event.id);
       continue;
     }
 
@@ -253,6 +278,11 @@ async function fetchAllEvents(
   let nextSyncToken: string | null | undefined;
   const timeWindow = syncToken ? undefined : syncWindowIso();
   let firstPage = true;
+
+  // Full window pull must rebuild mirrored cache (avoids orphans after 410).
+  if (!syncToken) {
+    await clearMirroredForCalendar(calendarId);
+  }
 
   do {
     const result = await listEvents(client, calendarId, {
@@ -325,34 +355,40 @@ export async function pushDirtyBlocks(): Promise<void> {
       continue;
     }
 
-    const payload = ownedEventPayload({
-      title: block.title,
-      start: block.startAt.toISOString(),
-      end: block.endAt.toISOString(),
-    });
+    try {
+      const payload = ownedEventPayload({
+        title: block.title,
+        start: block.startAt.toISOString(),
+        end: block.endAt.toISOString(),
+      });
 
-    if (block.googleEventId) {
-      await patchEvent(
-        client,
-        block.googleCalendarId,
-        block.googleEventId,
-        payload,
-      );
-    } else {
-      const created = await insertEvent(client, block.googleCalendarId, payload);
-      if (created.id) {
+      if (block.googleEventId) {
+        await patchEvent(
+          client,
+          block.googleCalendarId,
+          block.googleEventId,
+          payload,
+        );
         await db
           .update(calendarBlocks)
-          .set({ googleEventId: created.id, dirty: false })
+          .set({ dirty: false })
           .where(eq(calendarBlocks.id, block.id));
-        continue;
+      } else {
+        const created = await insertEvent(
+          client,
+          block.googleCalendarId,
+          payload,
+        );
+        if (created.id) {
+          await db
+            .update(calendarBlocks)
+            .set({ googleEventId: created.id, dirty: false })
+            .where(eq(calendarBlocks.id, block.id));
+        }
       }
+    } catch {
+      // One failure (e.g. 404) must not abort the remaining dirty queue.
     }
-
-    await db
-      .update(calendarBlocks)
-      .set({ dirty: false })
-      .where(eq(calendarBlocks.id, block.id));
   }
 }
 
