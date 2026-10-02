@@ -65,8 +65,17 @@ export async function handleCalendarWebhook(
   const accessToken = await getAccessToken(
     decryptToken(account.refreshTokenEnc),
   );
-  await pullCalendar(state.calendarId, { accessToken });
-  return { status: "ok", calendarId: state.calendarId };
+
+  // Acknowledge Google before pull completes (self-hosted Node; fire-and-forget).
+  const calendarId = state.calendarId;
+  void pullCalendar(calendarId, { accessToken }).catch((err: unknown) => {
+    console.error(
+      `[google webhook] pull failed for calendar ${calendarId}`,
+      err,
+    );
+  });
+
+  return { status: "ok", calendarId };
 }
 
 export async function renewExpiringChannels(
@@ -127,8 +136,17 @@ export async function runSelectedCalendarSync(): Promise<SyncRunResult> {
     .from(googleCalendarSelections)
     .where(eq(googleCalendarSelections.selected, true));
 
+  let pulled = 0;
   for (const cal of selected) {
-    await pullCalendar(cal.calendarId, { accessToken });
+    try {
+      await pullCalendar(cal.calendarId, { accessToken });
+      pulled += 1;
+    } catch (err: unknown) {
+      console.error(
+        `[google sync] pull failed for calendar ${cal.calendarId}`,
+        err,
+      );
+    }
   }
 
   await pushDirtyBlocks();
@@ -136,7 +154,7 @@ export async function runSelectedCalendarSync(): Promise<SyncRunResult> {
 
   return {
     connected: true,
-    pulled: selected.length,
+    pulled,
     renewed,
   };
 }

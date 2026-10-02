@@ -96,7 +96,14 @@ describe("handleCalendarWebhook", () => {
     expect(mocks.pullCalendar).not.toHaveBeenCalled();
   });
 
-  it("pulls matching calendar for exists notification", async () => {
+  it("returns ok and kicks off pull without awaiting completion", async () => {
+    let resolvePull!: () => void;
+    mocks.pullCalendar.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePull = resolve;
+        }),
+    );
     mocks.dbSelect
       .mockReturnValueOnce(
         selectChain([
@@ -121,6 +128,8 @@ describe("handleCalendarWebhook", () => {
     expect(mocks.pullCalendar).toHaveBeenCalledWith("cal-1", {
       accessToken: "access-token",
     });
+
+    resolvePull();
   });
 
   it("returns ok without pull when channel is unknown", async () => {
@@ -188,6 +197,38 @@ describe("runSelectedCalendarSync", () => {
       pulled: 2,
       renewed: 0,
     });
+  });
+
+  it("continues other calendars when one pull fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.dbSelect
+      .mockReturnValueOnce(
+        selectChain([{ refreshTokenEnc: "enc" }]),
+      )
+      .mockReturnValueOnce(
+        selectChain([
+          { calendarId: "cal-1", selected: true },
+          { calendarId: "cal-2", selected: true },
+        ]),
+      )
+      .mockReturnValue(selectChain([]));
+
+    mocks.pullCalendar
+      .mockRejectedValueOnce(new Error("pull failed"))
+      .mockResolvedValueOnce(undefined);
+    mocks.pushDirtyBlocks.mockResolvedValue(undefined);
+
+    const result = await runSelectedCalendarSync();
+
+    expect(mocks.pullCalendar).toHaveBeenCalledTimes(2);
+    expect(mocks.pushDirtyBlocks).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      connected: true,
+      pulled: 1,
+      renewed: 0,
+    });
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
 
