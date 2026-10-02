@@ -7,6 +7,7 @@ import {
   workdayCapacityMinutes,
 } from "@/domain/plan";
 import { apiJson } from "@/lib/apiClient";
+import { syncGoogleCalendarIfConnected } from "@/lib/google/clientSync";
 
 type TaskRow = {
   id: string;
@@ -108,6 +109,10 @@ export default function PlanPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void syncGoogleCalendarIfConnected();
+  }, []);
 
   const open = useMemo(
     () => tasks.filter((t) => t.status === "open"),

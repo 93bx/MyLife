@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiJson } from "@/lib/apiClient";
+import { syncGoogleCalendarIfConnected } from "@/lib/google/clientSync";
 
 type TaskRow = {
   id: string;
@@ -35,6 +36,10 @@ export default function CalendarPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void syncGoogleCalendarIfConnected();
+  }, []);
 
   const grouped = useMemo(() => {
     const scheduled = tasks.filter(

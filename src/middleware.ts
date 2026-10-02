@@ -8,6 +8,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname === "/login" ||
     pathname === "/api/health" ||
+    pathname === "/api/google/calendar/webhook" ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico"
   ) {
