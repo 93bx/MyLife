@@ -364,4 +364,35 @@ describe("calendar blocks ownership guards", () => {
     expect(result).toEqual({ ok: true });
     expect(mocks.dbDelete).toHaveBeenCalled();
   });
+
+  it("returns 409 when linked googleEventId exists but Google is disconnected", async () => {
+    const owned = {
+      id: "owned-1",
+      title: "Study",
+      foreignSummary: null,
+      startAt: new Date("2026-09-02T10:00:00Z"),
+      endAt: new Date("2026-09-02T11:00:00Z"),
+      ownedByApp: true,
+      mirrored: false,
+      dirty: false,
+      taskId: null,
+      googleEventId: "evt-1",
+      googleCalendarId: "cal-1",
+    };
+
+    mocks.dbSelect
+      .mockReturnValueOnce(selectChain([owned]))
+      .mockReturnValueOnce(selectChain([]));
+
+    const result = await deleteOwnedBlock("owned-1");
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error:
+        "Reconnect Google to delete the linked calendar event, or disconnect first to unlink.",
+    });
+    expect(mocks.dbDelete).not.toHaveBeenCalled();
+    expect(mocks.deleteEvent).not.toHaveBeenCalled();
+  });
 });

@@ -7,6 +7,8 @@ import {
   googleAccounts,
   googleSyncState,
 } from "@/db/schema";
+import { riyadhToday } from "@/domain/cashPing";
+import { resolvePrimaryGoogleCalendarId } from "@/lib/calendar/blocks";
 import {
   createCalendarClient,
   insertEvent,
@@ -23,6 +25,29 @@ import {
 } from "./constants";
 import { decryptToken } from "./crypto";
 import { getAccessToken } from "./oauth";
+
+/** Asia/Riyadh is UTC+3 year-round (no DST). */
+const RIYADH_OFFSET = "+03:00";
+
+function addDaysToYmd(ymd: string, days: number): string {
+  const noon = new Date(`${ymd}T12:00:00${RIYADH_OFFSET}`);
+  noon.setTime(noon.getTime() + days * 24 * 60 * 60 * 1000);
+  return riyadhToday(noon);
+}
+
+/** Past/future sync bounds as calendar days in Asia/Riyadh. */
+export function syncWindowIso(asOf: Date = new Date()): {
+  timeMin: string;
+  timeMax: string;
+} {
+  const today = riyadhToday(asOf);
+  const minYmd = addDaysToYmd(today, -SYNC_WINDOW_PAST_DAYS);
+  const maxYmd = addDaysToYmd(today, SYNC_WINDOW_FUTURE_DAYS);
+  return {
+    timeMin: new Date(`${minYmd}T00:00:00${RIYADH_OFFSET}`).toISOString(),
+    timeMax: new Date(`${maxYmd}T23:59:59.999${RIYADH_OFFSET}`).toISOString(),
+  };
+}
 
 export type OwnedEventInput = {
   title: string;
@@ -64,15 +89,6 @@ function eventStartEnd(event: calendar_v3.Schema$Event): {
     return null;
   }
   return { start: new Date(startStr), end: new Date(endStr) };
-}
-
-function syncWindowIso(): { timeMin: string; timeMax: string } {
-  const now = new Date();
-  const timeMin = new Date(now);
-  timeMin.setUTCDate(timeMin.getUTCDate() - SYNC_WINDOW_PAST_DAYS);
-  const timeMax = new Date(now);
-  timeMax.setUTCDate(timeMax.getUTCDate() + SYNC_WINDOW_FUTURE_DAYS);
-  return { timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString() };
 }
 
 function isSyncTokenGone(err: unknown): boolean {
@@ -346,6 +362,7 @@ export async function pushDirtyBlocks(): Promise<void> {
 
   const accessToken = await getAccessToken(decryptToken(account.refreshTokenEnc));
   const client = createCalendarClient(accessToken);
+  const fallbackCalendarId = await resolvePrimaryGoogleCalendarId();
 
   const dirtyBlocks = await db
     .select()
@@ -359,7 +376,8 @@ export async function pushDirtyBlocks(): Promise<void> {
     );
 
   for (const block of dirtyBlocks) {
-    if (!block.googleCalendarId) {
+    const calendarId = block.googleCalendarId ?? fallbackCalendarId;
+    if (!calendarId) {
       continue;
     }
 
@@ -373,15 +391,13 @@ export async function pushDirtyBlocks(): Promise<void> {
       let eventId = block.googleEventId;
       if (eventId) {
         try {
-          await patchEvent(
-            client,
-            block.googleCalendarId,
-            eventId,
-            payload,
-          );
+          await patchEvent(client, calendarId, eventId, payload);
           await db
             .update(calendarBlocks)
-            .set({ dirty: false })
+            .set({
+              dirty: false,
+              googleCalendarId: calendarId,
+            })
             .where(eq(calendarBlocks.id, block.id));
           continue;
         } catch (err) {
@@ -397,15 +413,15 @@ export async function pushDirtyBlocks(): Promise<void> {
         }
       }
 
-      const created = await insertEvent(
-        client,
-        block.googleCalendarId,
-        payload,
-      );
+      const created = await insertEvent(client, calendarId, payload);
       if (created.id) {
         await db
           .update(calendarBlocks)
-          .set({ googleEventId: created.id, dirty: false })
+          .set({
+            googleEventId: created.id,
+            googleCalendarId: calendarId,
+            dirty: false,
+          })
           .where(eq(calendarBlocks.id, block.id));
       }
     } catch {

@@ -53,7 +53,12 @@ vi.mock("@/lib/google/crypto", () => ({
   decryptToken: mocks.decryptToken,
 }));
 
-import { ownedEventPayload, pullCalendar, pushDirtyBlocks } from "./sync";
+import { ownedEventPayload, pullCalendar, pushDirtyBlocks, syncWindowIso } from "./sync";
+import {
+  SYNC_WINDOW_FUTURE_DAYS,
+  SYNC_WINDOW_PAST_DAYS,
+} from "./constants";
+import { riyadhToday } from "@/domain/cashPing";
 
 function selectChain(rows: unknown[]) {
   const chain: {
@@ -116,6 +121,37 @@ describe("ownedEventPayload", () => {
     ).toMatchObject({
       extendedProperties: { private: { ownedByApp: "1" } },
     });
+  });
+});
+
+describe("syncWindowIso", () => {
+  it("bounds past/future days to Asia/Riyadh calendar dates", () => {
+    // 2026-09-01 22:00 UTC = 2026-09-02 01:00 Riyadh — UTC day differs from Riyadh day.
+    const asOf = new Date("2026-09-01T22:00:00.000Z");
+    const { timeMin, timeMax } = syncWindowIso(asOf);
+    const today = riyadhToday(asOf);
+    expect(today).toBe("2026-09-02");
+
+    const minDay = new Date(timeMin);
+    const maxDay = new Date(timeMax);
+    expect(riyadhToday(minDay)).toBe(
+      riyadhToday(
+        new Date(
+          new Date(`${today}T12:00:00+03:00`).getTime() -
+            SYNC_WINDOW_PAST_DAYS * 24 * 60 * 60 * 1000,
+        ),
+      ),
+    );
+    expect(riyadhToday(maxDay)).toBe(
+      riyadhToday(
+        new Date(
+          new Date(`${today}T12:00:00+03:00`).getTime() +
+            SYNC_WINDOW_FUTURE_DAYS * 24 * 60 * 60 * 1000,
+        ),
+      ),
+    );
+    expect(timeMin).toBe("2026-08-25T21:00:00.000Z"); // 2026-08-26 00:00+03
+    expect(timeMax).toBe("2026-09-30T20:59:59.999Z"); // 2026-09-30 23:59:59.999+03
   });
 });
 
@@ -264,6 +300,7 @@ describe("pushDirtyBlocks", () => {
 
     mocks.dbSelect
       .mockReturnValueOnce(selectChain([{ refreshTokenEnc: "enc" }]))
+      .mockReturnValueOnce(selectChain([{ calendarId: "cal-1" }]))
       .mockReturnValueOnce(selectChain(blocks));
 
     mocks.patchEvent.mockRejectedValueOnce({ code: 404 });
@@ -288,7 +325,52 @@ describe("pushDirtyBlocks", () => {
     const setPayloads = updates.map((u) => u._set);
     expect(setPayloads).toEqual([
       { googleEventId: null },
-      { googleEventId: "fresh-id", dirty: false },
+      { googleEventId: "fresh-id", googleCalendarId: "cal-1", dirty: false },
+    ]);
+  });
+
+  it("resolves primary calendar id when dirty block has null googleCalendarId", async () => {
+    const blocks = [
+      {
+        id: "b1",
+        title: "A",
+        startAt: new Date("2026-09-01T10:00:00Z"),
+        endAt: new Date("2026-09-01T11:00:00Z"),
+        googleCalendarId: null,
+        googleEventId: null,
+        dirty: true,
+        ownedByApp: true,
+        mirrored: false,
+      },
+    ];
+
+    mocks.dbSelect
+      .mockReturnValueOnce(selectChain([{ refreshTokenEnc: "enc" }]))
+      .mockReturnValueOnce(selectChain([{ calendarId: "primary-cal" }]))
+      .mockReturnValueOnce(selectChain(blocks));
+
+    mocks.insertEvent.mockResolvedValueOnce({ id: "fresh-id" });
+
+    const updates: ReturnType<typeof updateChain>[] = [];
+    mocks.dbUpdate.mockImplementation(() => {
+      const chain = updateChain();
+      updates.push(chain);
+      return chain;
+    });
+
+    await pushDirtyBlocks();
+
+    expect(mocks.insertEvent).toHaveBeenCalledWith(
+      {},
+      "primary-cal",
+      expect.objectContaining({ summary: "A" }),
+    );
+    expect(updates.map((u) => u._set)).toEqual([
+      {
+        googleEventId: "fresh-id",
+        googleCalendarId: "primary-cal",
+        dirty: false,
+      },
     ]);
   });
 
@@ -331,6 +413,7 @@ describe("pushDirtyBlocks", () => {
 
     mocks.dbSelect
       .mockReturnValueOnce(selectChain([{ refreshTokenEnc: "enc" }]))
+      .mockReturnValueOnce(selectChain([{ calendarId: "cal-1" }]))
       .mockReturnValueOnce(selectChain(blocks));
 
     mocks.patchEvent
@@ -351,6 +434,8 @@ describe("pushDirtyBlocks", () => {
     expect(mocks.insertEvent).toHaveBeenCalledTimes(1);
 
     const setPayloads = updates.map((u) => u._set);
-    expect(setPayloads).toEqual([{ dirty: false }]);
+    expect(setPayloads).toEqual([
+      { dirty: false, googleCalendarId: "cal-1" },
+    ]);
   });
 });

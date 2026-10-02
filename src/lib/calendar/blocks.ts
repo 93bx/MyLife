@@ -75,7 +75,16 @@ export async function resolvePrimaryGoogleCalendarId(): Promise<string | null> {
     .from(googleCalendarSelections)
     .where(eq(googleCalendarSelections.isPrimary, true))
     .limit(1);
-  return primary?.calendarId ?? null;
+  if (primary?.calendarId) {
+    return primary.calendarId;
+  }
+
+  const [selected] = await db
+    .select()
+    .from(googleCalendarSelections)
+    .where(eq(googleCalendarSelections.selected, true))
+    .limit(1);
+  return selected?.calendarId ?? null;
 }
 
 export async function listMergedBlocks(
@@ -195,7 +204,10 @@ export async function updateOwnedBlock(
 
 export type DeleteBlockResult =
   | { ok: true }
-  | { ok: false; status: 404 | 403; error: string };
+  | { ok: false; status: 404 | 403 | 409; error: string };
+
+const RECONNECT_TO_DELETE_MSG =
+  "Reconnect Google to delete the linked calendar event, or disconnect first to unlink.";
 
 export async function deleteOwnedBlock(id: string): Promise<DeleteBlockResult> {
   const [existing] = await db
@@ -216,23 +228,37 @@ export async function deleteOwnedBlock(id: string): Promise<DeleteBlockResult> {
     };
   }
 
-  if (existing.googleEventId && existing.googleCalendarId) {
+  if (existing.googleEventId) {
     const [account] = await db.select().from(googleAccounts).limit(1);
-    if (account) {
-      const accessToken = await getAccessToken(
-        decryptToken(account.refreshTokenEnc),
+    if (!account) {
+      return {
+        ok: false,
+        status: 409,
+        error: RECONNECT_TO_DELETE_MSG,
+      };
+    }
+
+    if (!existing.googleCalendarId) {
+      return {
+        ok: false,
+        status: 409,
+        error: RECONNECT_TO_DELETE_MSG,
+      };
+    }
+
+    const accessToken = await getAccessToken(
+      decryptToken(account.refreshTokenEnc),
+    );
+    const client = createCalendarClient(accessToken);
+    try {
+      await deleteEvent(
+        client,
+        existing.googleCalendarId,
+        existing.googleEventId,
       );
-      const client = createCalendarClient(accessToken);
-      try {
-        await deleteEvent(
-          client,
-          existing.googleCalendarId,
-          existing.googleEventId,
-        );
-      } catch (err) {
-        if (!isNotFound(err)) {
-          throw err;
-        }
+    } catch (err) {
+      if (!isNotFound(err)) {
+        throw err;
       }
     }
   }

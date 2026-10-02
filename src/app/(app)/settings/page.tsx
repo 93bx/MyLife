@@ -286,7 +286,7 @@ export default function SettingsPage() {
           Connect your personal Google account to mirror events and sync
           MyLife planning blocks.
         </p>
-        {google.pushUnavailable ? (
+        {google.connected && google.pushUnavailable ? (
           <p className="text-sm text-text-muted">
             Push unavailable — pull on page load.
           </p>

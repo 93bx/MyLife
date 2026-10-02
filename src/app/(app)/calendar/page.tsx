@@ -27,36 +27,70 @@ type CalendarBlock = {
 
 type ViewMode = "day" | "week";
 
+const RIYADH = "Asia/Riyadh";
+/** Asia/Riyadh is UTC+3 year-round (no DST). */
+const RIYADH_OFFSET = "+03:00";
+
 function dayKey(iso: string) {
-  return new Date(iso).toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: RIYADH,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
 }
 
-function startOfUtcDay(d: Date) {
-  const out = new Date(d);
-  out.setUTCHours(0, 0, 0, 0);
-  return out;
+function riyadhTodayYmd(asOf: Date = new Date()) {
+  return dayKey(asOf.toISOString());
 }
 
-function addUtcDays(d: Date, days: number) {
-  const out = new Date(d);
-  out.setUTCDate(out.getUTCDate() + days);
-  return out;
+function addRiyadhDays(ymd: string, days: number) {
+  const noon = new Date(`${ymd}T12:00:00${RIYADH_OFFSET}`);
+  noon.setTime(noon.getTime() + days * 24 * 60 * 60 * 1000);
+  return riyadhTodayYmd(noon);
+}
+
+function riyadhDayStart(ymd: string) {
+  return new Date(`${ymd}T00:00:00${RIYADH_OFFSET}`);
 }
 
 function toDatetimeLocalValue(iso: string) {
   const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const datePart = new Intl.DateTimeFormat("en-CA", {
+    timeZone: RIYADH,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: RIYADH,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  let hour = timeParts.find((p) => p.type === "hour")?.value ?? "00";
+  if (hour === "24") hour = "00";
+  const minute = timeParts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${datePart}T${hour}:${minute}`;
 }
 
 function fromDatetimeLocalValue(value: string) {
-  return new Date(value).toISOString();
+  // datetime-local has no zone; treat wall clock as Asia/Riyadh.
+  return new Date(`${value}:00${RIYADH_OFFSET}`).toISOString();
 }
 
 function formatRange(startIso: string, endIso: string) {
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  return `${start.toLocaleString()} – ${end.toLocaleTimeString()}`;
+  const opts: Intl.DateTimeFormatOptions = {
+    timeZone: RIYADH,
+    dateStyle: "medium",
+    timeStyle: "short",
+  };
+  const start = new Date(startIso).toLocaleString(undefined, opts);
+  const end = new Date(endIso).toLocaleTimeString(undefined, {
+    timeZone: RIYADH,
+    timeStyle: "short",
+  });
+  return `${start} – ${end}`;
 }
 
 const fieldClass =
@@ -67,9 +101,7 @@ export default function CalendarPage() {
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("week");
-  const [anchorDay, setAnchorDay] = useState(() =>
-    startOfUtcDay(new Date()).toISOString().slice(0, 10),
-  );
+  const [anchorDay, setAnchorDay] = useState(() => riyadhTodayYmd());
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -80,11 +112,11 @@ export default function CalendarPage() {
   const [newEnd, setNewEnd] = useState("");
 
   const windowRange = useMemo(() => {
-    const start = new Date(`${anchorDay}T00:00:00.000Z`);
+    const start = riyadhDayStart(anchorDay);
     if (view === "day") {
-      return { start, end: addUtcDays(start, 1) };
+      return { start, end: riyadhDayStart(addRiyadhDays(anchorDay, 1)) };
     }
-    return { start, end: addUtcDays(start, 7) };
+    return { start, end: riyadhDayStart(addRiyadhDays(anchorDay, 7)) };
   }, [anchorDay, view]);
 
   const loadTasks = useCallback(async () => {
@@ -463,7 +495,9 @@ export default function CalendarPage() {
                       <span className="text-text-muted">
                         {t.status} · {t.type} · {t.priority} ·{" "}
                         <span className="font-mono">
-                          {new Date(t.deadline!).toLocaleTimeString()}
+                          {new Date(t.deadline!).toLocaleTimeString(undefined, {
+                            timeZone: RIYADH,
+                          })}
                         </span>
                       </span>
                     </li>
