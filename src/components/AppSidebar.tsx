@@ -2,58 +2,196 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/icons";
+import {
+  NAV_HUBS,
+  findHubForPathname,
+  hubDefaultPath,
+  type NavHub,
+} from "@/lib/nav/config";
 
-const NAV = [
-  { href: "/", label: "Plan" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/projects", label: "Projects" },
-  { href: "/goals", label: "Goals" },
-  { href: "/money", label: "Money" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/agent", label: "Agent" },
-  { href: "/profile", label: "Profile" },
-  { href: "/settings", label: "Settings" },
-] as const;
+const EXPANDED_KEY = "mylife.nav.expanded";
 
-function isActive(pathname: string, href: string): boolean {
+function readExpandedIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(EXPANDED_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    return [];
+  }
+}
+
+function isPathActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function NavLinks({
+function NavTree({
+  pathname,
+  expanded,
+  onToggle,
   onNavigate,
 }: {
+  pathname: string;
+  expanded: Set<string>;
+  onToggle: (id: string) => void;
   onNavigate?: () => void;
 }) {
-  const pathname = usePathname();
-
   return (
     <nav className="flex flex-col gap-0.5 px-2" aria-label="Main">
-      {NAV.map((item) => {
-        const active = isActive(pathname, item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`rounded-sm border-l-2 px-3 py-2 text-sm transition-colors ${
-              active
-                ? "border-accent bg-accent-muted/30 text-accent"
-                : "border-transparent text-text-muted hover:bg-bg-elevated hover:text-text"
-            }`}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+      {NAV_HUBS.map((hub) => (
+        <HubItem
+          key={hub.id}
+          hub={hub}
+          pathname={pathname}
+          expanded={expanded.has(hub.id)}
+          onToggle={() => onToggle(hub.id)}
+          onNavigate={onNavigate}
+        />
+      ))}
     </nav>
+  );
+}
+
+function HubItem({
+  hub,
+  pathname,
+  expanded,
+  onToggle,
+  onNavigate,
+}: {
+  hub: NavHub;
+  pathname: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onNavigate?: () => void;
+}) {
+  const hasChildren = Boolean(hub.children?.length);
+  const defaultPath = hubDefaultPath(hub.href);
+  const hubActive = isPathActive(pathname, hub.href);
+
+  if (!hasChildren) {
+    return (
+      <Link
+        href={hub.href}
+        onClick={onNavigate}
+        className={`flex items-center gap-2 rounded-sm border-l-2 px-2 py-1.5 text-sm transition-colors ${
+          hubActive
+            ? "border-accent bg-accent-muted/30 text-accent"
+            : "border-transparent text-text-muted hover:bg-bg-elevated hover:text-text"
+        }`}
+      >
+        <Icon name={hub.icon} className="size-4 shrink-0" aria-hidden />
+        <span>{hub.label}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div
+        className={`flex items-center gap-0.5 rounded-sm border-l-2 ${
+          hubActive
+            ? "border-accent/50 text-text"
+            : "border-transparent text-text-muted"
+        }`}
+      >
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${hub.label}`}
+          onClick={onToggle}
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm hover:bg-bg-elevated hover:text-text"
+        >
+          {expanded ? (
+            <ChevronDown className="size-3.5" aria-hidden />
+          ) : (
+            <ChevronRight className="size-3.5" aria-hidden />
+          )}
+        </button>
+        {defaultPath ? (
+          <Link
+            href={defaultPath}
+            onClick={onNavigate}
+            title={`Open ${hub.label}`}
+            aria-label={`Open ${hub.label}`}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm hover:bg-bg-elevated hover:text-accent"
+          >
+            <Icon name={hub.icon} className="size-4" aria-hidden />
+          </Link>
+        ) : (
+          <span className="inline-flex size-7 shrink-0 items-center justify-center">
+            <Icon name={hub.icon} className="size-4" aria-hidden />
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onToggle}
+          className="min-w-0 flex-1 truncate rounded-sm px-1 py-1.5 text-left text-sm hover:bg-bg-elevated hover:text-text"
+        >
+          {hub.label}
+        </button>
+      </div>
+      {expanded && hub.children ? (
+        <div className="ml-4 flex flex-col gap-0.5 border-l border-border pl-1">
+          {hub.children.map((child) => {
+            const href = `${hub.href}/${child.segment}`;
+            const active = isPathActive(pathname, href);
+            return (
+              <Link
+                key={child.segment}
+                href={href}
+                onClick={onNavigate}
+                className={`flex items-center gap-2 rounded-sm border-l-2 px-2 py-1.5 text-sm transition-colors ${
+                  active
+                    ? "border-accent bg-accent-muted/30 text-accent"
+                    : "border-transparent text-text-muted hover:bg-bg-elevated hover:text-text"
+                }`}
+              >
+                <Icon name={child.icon} className="size-3.5 shrink-0" aria-hidden />
+                <span>{child.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 export function AppSidebar() {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [ready, setReady] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setExpanded(new Set(readExpandedIds()));
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    const hub = findHubForPathname(pathname);
+    if (!hub?.children?.length) return;
+    setExpanded((prev) => {
+      if (prev.has(hub.id)) return prev;
+      const next = new Set(prev);
+      next.add(hub.id);
+      return next;
+    });
+  }, [pathname, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expanded]));
+  }, [expanded, ready]);
 
   useEffect(() => {
     setOpen(false);
@@ -68,6 +206,23 @@ export function AppSidebar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  function toggleHub(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const tree = (
+    <NavTree
+      pathname={pathname}
+      expanded={expanded}
+      onToggle={toggleHub}
+    />
+  );
+
   return (
     <>
       {/* Desktop sidebar */}
@@ -77,9 +232,7 @@ export function AppSidebar() {
             MyLife
           </Link>
         </div>
-        <div className="flex-1 overflow-y-auto py-3">
-          <NavLinks />
-        </div>
+        <div className="flex-1 overflow-y-auto py-3">{tree}</div>
       </aside>
 
       {/* Mobile top bar */}
@@ -162,7 +315,12 @@ export function AppSidebar() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto py-3">
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <NavTree
+              pathname={pathname}
+              expanded={expanded}
+              onToggle={toggleHub}
+              onNavigate={() => setOpen(false)}
+            />
           </div>
         </aside>
       </div>
