@@ -68,6 +68,17 @@ export async function patchEvent(
   return res.data;
 }
 
+export async function deleteEvent(
+  client: calendar_v3.Calendar,
+  calendarId: string,
+  eventId: string,
+): Promise<void> {
+  await client.events.delete({
+    calendarId,
+    eventId,
+  });
+}
+
 export async function watchCalendar(
   client: calendar_v3.Calendar,
   calendarId: string,

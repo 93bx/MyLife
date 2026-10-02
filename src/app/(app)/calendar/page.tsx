@@ -180,6 +180,7 @@ export default function CalendarPage() {
     }
     setEditingId(null);
     await loadBlocks();
+    void syncGoogleCalendarIfConnected();
   }
 
   async function removeBlock(id: string) {
@@ -195,6 +196,7 @@ export default function CalendarPage() {
     }
     if (editingId === id) setEditingId(null);
     await loadBlocks();
+    void syncGoogleCalendarIfConnected();
   }
 
   async function createBlock(e: FormEvent) {

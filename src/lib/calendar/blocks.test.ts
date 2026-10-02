@@ -5,6 +5,10 @@ const mocks = vi.hoisted(() => ({
   dbInsert: vi.fn(),
   dbUpdate: vi.fn(),
   dbDelete: vi.fn(),
+  deleteEvent: vi.fn(),
+  createCalendarClient: vi.fn(),
+  getAccessToken: vi.fn(),
+  decryptToken: vi.fn(),
 }));
 
 vi.mock("@/db/client", () => ({
@@ -14,6 +18,19 @@ vi.mock("@/db/client", () => ({
     update: mocks.dbUpdate,
     delete: mocks.dbDelete,
   },
+}));
+
+vi.mock("@/lib/google/calendarClient", () => ({
+  deleteEvent: mocks.deleteEvent,
+  createCalendarClient: mocks.createCalendarClient,
+}));
+
+vi.mock("@/lib/google/oauth", () => ({
+  getAccessToken: mocks.getAccessToken,
+}));
+
+vi.mock("@/lib/google/crypto", () => ({
+  decryptToken: mocks.decryptToken,
 }));
 
 import {
@@ -245,6 +262,106 @@ describe("calendar blocks ownership guards", () => {
     mocks.dbDelete.mockReturnValueOnce(deleteWhere());
     const deleteResult = await deleteOwnedBlock("owned-1");
     expect(deleteResult).toEqual({ ok: true });
+    expect(mocks.dbDelete).toHaveBeenCalled();
+    expect(mocks.deleteEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects PATCH when merged startAt is not before endAt", async () => {
+    const owned = {
+      id: "owned-1",
+      title: "Study",
+      foreignSummary: null,
+      startAt: new Date("2026-09-02T10:00:00Z"),
+      endAt: new Date("2026-09-02T11:00:00Z"),
+      ownedByApp: true,
+      mirrored: false,
+      dirty: false,
+      taskId: null,
+      googleEventId: null,
+      googleCalendarId: "cal-1",
+    };
+
+    mocks.dbSelect.mockReturnValueOnce(selectChain([owned]));
+
+    const result = await updateOwnedBlock({
+      id: "owned-1",
+      startAt: new Date("2026-09-02T12:00:00Z"),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "startAt must be before endAt",
+    });
+    expect(mocks.dbUpdate).not.toHaveBeenCalled();
+  });
+
+  it("deletes linked Google event for owned block then deletes local row", async () => {
+    const owned = {
+      id: "owned-1",
+      title: "Study",
+      foreignSummary: null,
+      startAt: new Date("2026-09-02T10:00:00Z"),
+      endAt: new Date("2026-09-02T11:00:00Z"),
+      ownedByApp: true,
+      mirrored: false,
+      dirty: false,
+      taskId: null,
+      googleEventId: "evt-1",
+      googleCalendarId: "cal-1",
+    };
+
+    mocks.dbSelect
+      .mockReturnValueOnce(selectChain([owned]))
+      .mockReturnValueOnce(
+        selectChain([{ refreshTokenEnc: "enc-token" }]),
+      );
+    mocks.decryptToken.mockReturnValue("refresh-token");
+    mocks.getAccessToken.mockResolvedValue("access-token");
+    mocks.createCalendarClient.mockReturnValue({ events: {} });
+    mocks.deleteEvent.mockResolvedValue(undefined);
+    mocks.dbDelete.mockReturnValueOnce(deleteWhere());
+
+    const result = await deleteOwnedBlock("owned-1");
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.deleteEvent).toHaveBeenCalledWith(
+      { events: {} },
+      "cal-1",
+      "evt-1",
+    );
+    expect(mocks.dbDelete).toHaveBeenCalled();
+  });
+
+  it("ignores Google 404 when deleting owned linked event", async () => {
+    const owned = {
+      id: "owned-1",
+      title: "Study",
+      foreignSummary: null,
+      startAt: new Date("2026-09-02T10:00:00Z"),
+      endAt: new Date("2026-09-02T11:00:00Z"),
+      ownedByApp: true,
+      mirrored: false,
+      dirty: false,
+      taskId: null,
+      googleEventId: "evt-gone",
+      googleCalendarId: "cal-1",
+    };
+
+    mocks.dbSelect
+      .mockReturnValueOnce(selectChain([owned]))
+      .mockReturnValueOnce(
+        selectChain([{ refreshTokenEnc: "enc-token" }]),
+      );
+    mocks.decryptToken.mockReturnValue("refresh-token");
+    mocks.getAccessToken.mockResolvedValue("access-token");
+    mocks.createCalendarClient.mockReturnValue({ events: {} });
+    mocks.deleteEvent.mockRejectedValue({ code: 404 });
+    mocks.dbDelete.mockReturnValueOnce(deleteWhere());
+
+    const result = await deleteOwnedBlock("owned-1");
+
+    expect(result).toEqual({ ok: true });
     expect(mocks.dbDelete).toHaveBeenCalled();
   });
 });

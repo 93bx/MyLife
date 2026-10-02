@@ -1,12 +1,30 @@
 import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/db/client";
-import { calendarBlocks, googleCalendarSelections } from "@/db/schema";
+import {
+  calendarBlocks,
+  googleAccounts,
+  googleCalendarSelections,
+} from "@/db/schema";
 import {
   mergeCalendarItems,
   type CalendarItem,
   type CalendarWindow,
 } from "@/domain/calendarMerge";
 import { agentMayModify } from "@/domain/calendarOwnership";
+import {
+  createCalendarClient,
+  deleteEvent,
+} from "@/lib/google/calendarClient";
+import { decryptToken } from "@/lib/google/crypto";
+import { getAccessToken } from "@/lib/google/oauth";
+
+function isNotFound(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) {
+    return false;
+  }
+  const e = err as { code?: number; response?: { status?: number } };
+  return e.code === 404 || e.response?.status === 404;
+}
 
 export type CalendarBlockRow = typeof calendarBlocks.$inferSelect;
 
@@ -127,7 +145,7 @@ export type UpdateOwnedBlockInput = {
 
 export type MutateBlockResult =
   | { ok: true; block: CalendarBlockDto }
-  | { ok: false; status: 404 | 403; error: string };
+  | { ok: false; status: 404 | 403 | 400; error: string };
 
 export async function updateOwnedBlock(
   input: UpdateOwnedBlockInput,
@@ -147,6 +165,16 @@ export async function updateOwnedBlock(
       ok: false,
       status: 403,
       error: "Foreign calendar events are read-only",
+    };
+  }
+
+  const nextStart = input.startAt ?? existing.startAt;
+  const nextEnd = input.endAt ?? existing.endAt;
+  if (nextStart >= nextEnd) {
+    return {
+      ok: false,
+      status: 400,
+      error: "startAt must be before endAt",
     };
   }
 
@@ -186,6 +214,27 @@ export async function deleteOwnedBlock(id: string): Promise<DeleteBlockResult> {
       status: 403,
       error: "Foreign calendar events cannot be deleted",
     };
+  }
+
+  if (existing.googleEventId && existing.googleCalendarId) {
+    const [account] = await db.select().from(googleAccounts).limit(1);
+    if (account) {
+      const accessToken = await getAccessToken(
+        decryptToken(account.refreshTokenEnc),
+      );
+      const client = createCalendarClient(accessToken);
+      try {
+        await deleteEvent(
+          client,
+          existing.googleCalendarId,
+          existing.googleEventId,
+        );
+      } catch (err) {
+        if (!isNotFound(err)) {
+          throw err;
+        }
+      }
+    }
   }
 
   await db.delete(calendarBlocks).where(eq(calendarBlocks.id, id));

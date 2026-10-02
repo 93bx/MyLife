@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { isWritableCalendar } from "./calendarClient";
+import { describe, expect, it, vi } from "vitest";
+import type { calendar_v3 } from "googleapis";
+import { deleteEvent, isWritableCalendar } from "./calendarClient";
 
 describe("isWritableCalendar", () => {
   it("allows owner and writer", () => {
@@ -15,5 +16,21 @@ describe("isWritableCalendar", () => {
   it("excludes missing accessRole", () => {
     expect(isWritableCalendar({})).toBe(false);
     expect(isWritableCalendar({ accessRole: null })).toBe(false);
+  });
+});
+
+describe("deleteEvent", () => {
+  it("calls events.delete with calendarId and eventId", async () => {
+    const deleteFn = vi.fn().mockResolvedValue({});
+    const client = {
+      events: { delete: deleteFn },
+    } as unknown as calendar_v3.Calendar;
+
+    await deleteEvent(client, "cal-1", "evt-9");
+
+    expect(deleteFn).toHaveBeenCalledWith({
+      calendarId: "cal-1",
+      eventId: "evt-9",
+    });
   });
 });
