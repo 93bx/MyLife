@@ -87,6 +87,13 @@ export async function stopChannel(
   await client.channels.stop({ requestBody: body });
 }
 
+/** Personal writable calendars only — excludes holiday/subscribed read-only. */
+export function isWritableCalendar(
+  entry: Pick<calendar_v3.Schema$CalendarListEntry, "accessRole">,
+): boolean {
+  return entry.accessRole === "owner" || entry.accessRole === "writer";
+}
+
 export async function listCalendars(
   client: calendar_v3.Calendar,
 ): Promise<calendar_v3.Schema$CalendarListEntry[]> {
@@ -100,5 +107,5 @@ export async function listCalendars(
     items.push(...(res.data.items ?? []));
     pageToken = res.data.nextPageToken ?? undefined;
   } while (pageToken);
-  return items;
+  return items.filter(isWritableCalendar);
 }
