@@ -26,6 +26,21 @@ type EndpointForm = {
   sortOrder: number;
 };
 
+type GoogleCalendarRow = {
+  id: string;
+  calendarId: string;
+  summary: string;
+  isPrimary: boolean;
+  selected: boolean;
+};
+
+type GoogleStatus = {
+  connected: boolean;
+  email: string | null;
+  pushUnavailable: boolean;
+  calendars: GoogleCalendarRow[];
+};
+
 const blankForm = (): EndpointForm => ({
   kind: "provider",
   name: "",
@@ -66,6 +81,23 @@ export default function SettingsPage() {
   const [agentMuted, setAgentMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [google, setGoogle] = useState<GoogleStatus>({
+    connected: false,
+    email: null,
+    pushUnavailable: true,
+    calendars: [],
+  });
+  const [googleNotice, setGoogleNotice] = useState<string | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  const loadGoogle = useCallback(async () => {
+    const res = await apiJson<GoogleStatus>("/api/google/calendars");
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setGoogle(res.data);
+  }, []);
 
   const load = useCallback(async () => {
     const [epRes, setRes] = await Promise.all([
@@ -86,11 +118,80 @@ export default function SettingsPage() {
     setEndpoints(epRes.data.endpoints);
     setSplitBank(setRes.data.settings.splitBank);
     setAgentMuted(setRes.data.settings.agentMuted);
-  }, []);
+    void loadGoogle();
+  }, [loadGoogle]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleParam = params.get("google");
+    if (!googleParam) {
+      return;
+    }
+    if (googleParam === "connected") {
+      setGoogleNotice("Google Calendar connected.");
+    } else if (googleParam === "error") {
+      const reason = params.get("reason");
+      const message =
+        reason === "state"
+          ? "Google sign-in failed (invalid state). Try again."
+          : reason === "no_refresh_token"
+            ? "Google did not return a refresh token. Disconnect the app in your Google account and reconnect."
+            : reason === "config"
+              ? "Google OAuth is not configured on this server."
+              : "Google sign-in failed. Try again.";
+      setError(message);
+    }
+    window.history.replaceState({}, "", "/settings");
+    void loadGoogle();
+  }, [loadGoogle]);
+
+  async function disconnectGoogle() {
+    setGoogleBusy(true);
+    const res = await apiJson<{ disconnected: boolean }>(
+      "/api/google/calendar/disconnect",
+      { method: "POST" },
+    );
+    setGoogleBusy(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setGoogleNotice("Google Calendar disconnected.");
+    setGoogle({
+      connected: false,
+      email: null,
+      pushUnavailable: true,
+      calendars: [],
+    });
+    void loadGoogle();
+  }
+
+  async function toggleGoogleCalendar(cal: GoogleCalendarRow) {
+    if (cal.isPrimary) {
+      return;
+    }
+    setGoogleBusy(true);
+    const res = await apiJson<{ calendars: GoogleCalendarRow[] }>(
+      "/api/google/calendars",
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          calendarId: cal.calendarId,
+          selected: !cal.selected,
+        }),
+      },
+    );
+    setGoogleBusy(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setGoogle((g) => ({ ...g, calendars: res.data.calendars }));
+  }
 
   async function saveSettings(patch: {
     splitBank?: boolean;
@@ -175,6 +276,71 @@ export default function SettingsPage() {
       </div>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {googleNotice ? (
+        <p className="text-sm text-accent">{googleNotice}</p>
+      ) : null}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Google Calendar</h2>
+        <p className="text-sm text-text-muted">
+          Connect your personal Google account to mirror events and sync
+          MyLife planning blocks.
+        </p>
+        {google.pushUnavailable ? (
+          <p className="text-sm text-text-muted">
+            Push unavailable — pull on page load.
+          </p>
+        ) : null}
+        {google.connected ? (
+          <div className="space-y-3">
+            <p className="text-sm">
+              Connected as{" "}
+              <span className="font-medium">{google.email ?? "—"}</span>
+            </p>
+            <ul className="divide-y divide-border border border-border">
+              {google.calendars.length === 0 ? (
+                <li className="px-3 py-4 text-sm text-text-muted">
+                  No calendars listed yet.
+                </li>
+              ) : (
+                google.calendars.map((cal) => (
+                  <li key={cal.id} className="px-3 py-3 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={cal.selected}
+                        disabled={googleBusy || cal.isPrimary}
+                        onChange={() => void toggleGoogleCalendar(cal)}
+                      />
+                      <span>
+                        {cal.summary}
+                        {cal.isPrimary ? (
+                          <span className="text-text-muted"> (primary)</span>
+                        ) : null}
+                      </span>
+                    </label>
+                  </li>
+                ))
+              )}
+            </ul>
+            <button
+              type="button"
+              disabled={googleBusy}
+              onClick={() => void disconnectGoogle()}
+              className="rounded border border-danger px-3 py-2 text-sm text-danger disabled:opacity-50"
+            >
+              Disconnect Google
+            </button>
+          </div>
+        ) : (
+          <a
+            href="/api/google/oauth/start"
+            className="inline-block rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text"
+          >
+            Connect Google
+          </a>
+        )}
+      </section>
 
       <section className="space-y-2">
         <h2 className="text-lg font-medium">Flags</h2>

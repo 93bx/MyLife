@@ -86,3 +86,19 @@ export async function stopChannel(
 ): Promise<void> {
   await client.channels.stop({ requestBody: body });
 }
+
+export async function listCalendars(
+  client: calendar_v3.Calendar,
+): Promise<calendar_v3.Schema$CalendarListEntry[]> {
+  const items: calendar_v3.Schema$CalendarListEntry[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await client.calendarList.list({
+      pageToken,
+      maxResults: 250,
+    });
+    items.push(...(res.data.items ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return items;
+}
