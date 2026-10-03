@@ -1,5 +1,9 @@
 import { AppSidebar } from "@/components/AppSidebar";
 
+// Auth-gated shell: skip SSG. Static prerender hits Next workUnitAsyncStorage
+// invariant on client-nav layout children under middleware.
+export const dynamic = "force-dynamic";
+
 export default function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
