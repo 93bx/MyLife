@@ -1,4 +1,4 @@
-export type AiEndpointKind = "provider" | "aggregator";
+export type AiEndpointKind = "provider" | "aggregator" | "local";
 
 export type AiEndpoint = {
   name: string;
