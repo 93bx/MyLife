@@ -3,6 +3,10 @@ import { asc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { aiEndpoints, profiles, settings } from "@/db/schema";
 import { FreeAiExhaustedError, chatFree } from "@/lib/ai/freeGateway";
+import {
+  orderEndpointsForMode,
+  parseAiRoutingMode,
+} from "@/lib/ai/orderEndpoints";
 import { filterEndpointsForSlice } from "@/lib/ai/slice";
 import type { AiEndpoint, AiEndpointKind, ChatMessage } from "@/lib/ai/types";
 
@@ -47,9 +51,12 @@ export async function POST(request: Request) {
     }));
 
   const filtered = filterEndpointsForSlice(endpoints, "general", allowTrain);
+  const mode =
+    parseAiRoutingMode(settingsRow?.aiRoutingMode) ?? "cloud-first";
+  const ordered = orderEndpointsForMode(filtered, mode);
 
   try {
-    const result = await chatFree(filtered, body.messages);
+    const result = await chatFree(ordered, body.messages);
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof FreeAiExhaustedError) {

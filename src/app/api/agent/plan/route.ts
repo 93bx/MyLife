@@ -13,6 +13,10 @@ import {
 import { cashBalance } from "@/domain/money";
 import { FreeAiExhaustedError, chatFree } from "@/lib/ai/freeGateway";
 import {
+  orderEndpointsForMode,
+  parseAiRoutingMode,
+} from "@/lib/ai/orderEndpoints";
+import {
   buildPlanAgentMessages,
   parsePlanAgentJson,
   resolvePlanScope,
@@ -194,6 +198,9 @@ export async function POST(request: Request) {
 
   // Plan prompt includes cash balance — money slice never hits trainsOnPrompts.
   const filtered = filterEndpointsForSlice(endpoints, "money", allowTrain);
+  const mode =
+    parseAiRoutingMode(settingsRow?.aiRoutingMode) ?? "cloud-first";
+  const ordered = orderEndpointsForMode(filtered, mode);
   const messages = buildPlanAgentMessages(
     {
       scope,
@@ -217,7 +224,7 @@ export async function POST(request: Request) {
   let content: string;
   let usedEndpointName: string;
   try {
-    const result = await chatFree(filtered, messages);
+    const result = await chatFree(ordered, messages);
     content = result.content;
     usedEndpointName = result.usedEndpointName;
   } catch (err) {
