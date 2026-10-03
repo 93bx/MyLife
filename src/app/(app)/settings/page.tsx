@@ -17,7 +17,7 @@ type Endpoint = {
 };
 
 type EndpointForm = {
-  kind: "provider" | "aggregator";
+  kind: "provider" | "aggregator" | "local";
   name: string;
   baseUrl: string;
   apiKey: string;
@@ -26,6 +26,19 @@ type EndpointForm = {
   enabled: boolean;
   sortOrder: number;
 };
+
+const LOCAL_PRESETS = [
+  {
+    label: "Ollama",
+    baseUrl: "http://127.0.0.1:11434/v1",
+    model: "llama3.2",
+  },
+  {
+    label: "LM Studio",
+    baseUrl: "http://127.0.0.1:1234/v1",
+    model: "local-model",
+  },
+] as const;
 
 type GoogleCalendarRow = {
   id: string;
@@ -60,7 +73,12 @@ function maskKey(key: string) {
 
 function formFromEndpoint(ep: Endpoint): EndpointForm {
   return {
-    kind: ep.kind === "aggregator" ? "aggregator" : "provider",
+    kind:
+      ep.kind === "local"
+        ? "local"
+        : ep.kind === "aggregator"
+          ? "aggregator"
+          : "provider",
     name: ep.name,
     baseUrl: ep.baseUrl,
     apiKey: ep.apiKey,
@@ -89,6 +107,7 @@ export default function SettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [splitBank, setSplitBank] = useState(false);
   const [agentMuted, setAgentMuted] = useState(false);
+  const [aiRoutingMode, setAiRoutingMode] = useState("cloud-first");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [google, setGoogle] = useState<GoogleStatus>({
@@ -112,9 +131,13 @@ export default function SettingsPage() {
   const load = useCallback(async () => {
     const [epRes, setRes] = await Promise.all([
       apiJson<{ endpoints: Endpoint[] }>("/api/ai-endpoints"),
-      apiJson<{ settings: { splitBank: boolean; agentMuted: boolean } }>(
-        "/api/settings",
-      ),
+      apiJson<{
+        settings: {
+          splitBank: boolean;
+          agentMuted: boolean;
+          aiRoutingMode: string;
+        };
+      }>("/api/settings"),
     ]);
     if (!epRes.ok) {
       setError(epRes.error);
@@ -128,6 +151,7 @@ export default function SettingsPage() {
     setEndpoints(epRes.data.endpoints);
     setSplitBank(setRes.data.settings.splitBank);
     setAgentMuted(setRes.data.settings.agentMuted);
+    setAiRoutingMode(setRes.data.settings.aiRoutingMode ?? "cloud-first");
     void loadGoogle();
   }, [loadGoogle]);
 
@@ -206,6 +230,7 @@ export default function SettingsPage() {
   async function saveSettings(patch: {
     splitBank?: boolean;
     agentMuted?: boolean;
+    aiRoutingMode?: string;
   }) {
     const res = await apiJson("/api/settings", {
       method: "PATCH",
@@ -374,10 +399,28 @@ export default function SettingsPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">AI endpoints</h2>
+        <label className="flex flex-col gap-1 text-sm text-text-muted">
+          AI routing mode
+          <select
+            value={aiRoutingMode}
+            onChange={(e) => {
+              const v = e.target.value;
+              setAiRoutingMode(v);
+              void saveSettings({ aiRoutingMode: v });
+            }}
+            className={fieldClass}
+          >
+            <option value="cloud-first">cloud-first</option>
+            <option value="local-first">local-first</option>
+            <option value="cloud-only">cloud-only</option>
+            <option value="local-only">local-only</option>
+          </select>
+        </label>
         <ul className="divide-y divide-border border border-border">
           {endpoints.length === 0 ? (
             <li className="px-3 py-4 text-sm text-text-muted">
-              No endpoints yet. Add providers and aggregators below.
+              No endpoints yet. Add providers, aggregators, or local endpoints
+              below.
             </li>
           ) : (
             endpoints.map((ep) => (
@@ -433,6 +476,25 @@ export default function SettingsPage() {
         <h2 className="text-lg font-medium">
           {editingId ? "Edit endpoint" : "Add endpoint"}
         </h2>
+        <div className="flex flex-wrap gap-2">
+          {LOCAL_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() =>
+                setForm((f) => ({
+                  ...f,
+                  kind: "local",
+                  baseUrl: p.baseUrl,
+                  model: f.model || p.model,
+                }))
+              }
+              className={ghostBtnClass}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm text-text-muted">
             Kind
@@ -441,13 +503,14 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setForm((f) => ({
                   ...f,
-                  kind: e.target.value as "provider" | "aggregator",
+                  kind: e.target.value as EndpointForm["kind"],
                 }))
               }
               className={fieldClass}
             >
               <option value="provider">provider</option>
               <option value="aggregator">aggregator</option>
+              <option value="local">local</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm text-text-muted">
@@ -470,7 +533,7 @@ export default function SettingsPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-text-muted">
-            API key
+            {form.kind === "local" ? "API key (optional for local)" : "API key"}
             <input
               value={form.apiKey}
               onChange={(e) =>
