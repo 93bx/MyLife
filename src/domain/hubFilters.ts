@@ -11,6 +11,9 @@ export type HubProject = { kind: string; origin: string };
 
 export const CAREER_TAGS = ["career", "cert", "brand", "sms", "apply"] as const;
 
+/** Spec default; Profile.timezone overrides when callers pass it. */
+export const DEFAULT_TASK_TZ = "Asia/Riyadh";
+
 export function isTimeTask(t: HubTask): boolean {
   return t.resources === "time" || t.resources === "both";
 }
@@ -29,21 +32,33 @@ export function isOpenTask(t: HubTask): boolean {
   return t.status === "open";
 }
 
-function utcDayKey(isoOrDate: string | Date): string {
+/** Calendar YYYY-MM-DD in `timeZone`. Bare `YYYY-MM-DD` deadlines stay as-is. */
+export function calendarDayKey(
+  isoOrDate: string | Date,
+  timeZone: string = DEFAULT_TASK_TZ,
+): string {
   if (typeof isoOrDate === "string") {
     const prefix = isoOrDate.slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(prefix)) return prefix;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(prefix) && isoOrDate.length === 10) {
+      return prefix;
+    }
   }
   const d = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
 }
 
-export function isOverdueTask(t: HubTask, now: Date): boolean {
+export function isOverdueTask(
+  t: HubTask,
+  now: Date,
+  timeZone: string = DEFAULT_TASK_TZ,
+): boolean {
   if (!isOpenTask(t) || t.deadline == null) return false;
-  return utcDayKey(t.deadline) < utcDayKey(now);
+  return calendarDayKey(t.deadline, timeZone) < calendarDayKey(now, timeZone);
 }
 
 export function isHistoryTask(t: HubTask): boolean {

@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { HubHeader } from "@/components/HubHeader";
-import { isOverdueTask, type HubTask } from "@/domain/hubFilters";
+import {
+  DEFAULT_TASK_TZ,
+  isOverdueTask,
+  type HubTask,
+} from "@/domain/hubFilters";
 import { apiJson } from "@/lib/apiClient";
 
 type TaskRow = {
@@ -44,16 +48,23 @@ function toHubTask(t: TaskRow): HubTask {
 
 export default function TasksOverduePage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [timezone, setTimezone] = useState(DEFAULT_TASK_TZ);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await apiJson<{ tasks: TaskRow[] }>("/api/tasks");
-    if (!res.ok) {
-      setError(res.error);
+    const [tasksRes, profileRes] = await Promise.all([
+      apiJson<{ tasks: TaskRow[] }>("/api/tasks"),
+      apiJson<{ profile: { timezone?: string } }>("/api/profile"),
+    ]);
+    if (!tasksRes.ok) {
+      setError(tasksRes.error);
       return;
     }
     setError(null);
-    setTasks(res.data.tasks);
+    setTasks(tasksRes.data.tasks);
+    if (profileRes.ok) {
+      setTimezone(profileRes.data.profile.timezone ?? DEFAULT_TASK_TZ);
+    }
   }, []);
 
   useEffect(() => {
@@ -62,14 +73,14 @@ export default function TasksOverduePage() {
 
   const overdue = useMemo(() => {
     const now = new Date();
-    return tasks.filter((t) => isOverdueTask(toHubTask(t), now));
-  }, [tasks]);
+    return tasks.filter((t) => isOverdueTask(toHubTask(t), now, timezone));
+  }, [tasks, timezone]);
 
   return (
     <div className="space-y-6">
       <HubHeader
         title="Overdue"
-        description="Open tasks past their deadline (UTC day)."
+        description={`Open tasks past their deadline (start of today in ${timezone}).`}
       />
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       <ul className="divide-y divide-border border border-border">

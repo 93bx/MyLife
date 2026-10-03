@@ -8,7 +8,11 @@ import { P1Strip } from "@/components/dashboard/P1Strip";
 import { TodayFocus } from "@/components/dashboard/TodayFocus";
 import { HubHeader } from "@/components/HubHeader";
 import { buildAttentionItems } from "@/domain/dashboardAttention";
-import { isOpenTask, isOverdueTask } from "@/domain/hubFilters";
+import {
+  DEFAULT_TASK_TZ,
+  isOpenTask,
+  isOverdueTask,
+} from "@/domain/hubFilters";
 import { apiJson } from "@/lib/apiClient";
 import { syncGoogleCalendarIfConnected } from "@/lib/google/clientSync";
 
@@ -26,6 +30,7 @@ type TaskRow = {
 
 type ProfileRow = {
   cashBufferSar: string | null;
+  timezone?: string;
 };
 
 type CalendarBlock = StripBlock;
@@ -55,6 +60,7 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [balanceSar, setBalanceSar] = useState<number | null>(null);
   const [bufferSar, setBufferSar] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState(DEFAULT_TASK_TZ);
   const [showCashPing, setShowCashPing] = useState(false);
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -87,8 +93,10 @@ export default function DashboardPage() {
     if (moneyRes.ok) setBalanceSar(moneyRes.data.balanceSar);
     else setLoadError((prev) => prev ?? moneyRes.error);
 
-    if (profileRes.ok) setBufferSar(profileRes.data.profile.cashBufferSar);
-    else setLoadError((prev) => prev ?? profileRes.error);
+    if (profileRes.ok) {
+      setBufferSar(profileRes.data.profile.cashBufferSar);
+      setTimezone(profileRes.data.profile.timezone ?? DEFAULT_TASK_TZ);
+    } else setLoadError((prev) => prev ?? profileRes.error);
 
     if (cashPingRes.ok) setShowCashPing(cashPingRes.data.showBanner);
     else setShowCashPing(false);
@@ -139,11 +147,12 @@ export default function DashboardPage() {
             projectId: t.projectId,
           },
           now,
+          timezone,
         ),
       )
       .map((t) => ({ id: t.id, title: t.title }));
     return buildAttentionItems({ overdueTasks, showCashPing });
-  }, [tasks, showCashPing]);
+  }, [tasks, showCashPing, timezone]);
 
   return (
     <div className="space-y-6">

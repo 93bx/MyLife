@@ -16,7 +16,7 @@ export function P1Strip({ tasks }: { tasks: P1Task[] }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-medium">P1</h2>
         <Link
-          href="/tasks/summary"
+          href="/tasks/summary?priority=P1"
           className="text-sm text-text-muted hover:text-accent"
         >
           Tasks summary →

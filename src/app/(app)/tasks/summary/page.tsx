@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { HubHeader } from "@/components/HubHeader";
 import { isOpenTask, type HubTask } from "@/domain/hubFilters";
 import { apiJson } from "@/lib/apiClient";
@@ -45,7 +46,10 @@ function toHubTask(t: TaskRow): HubTask {
   };
 }
 
-export default function TasksSummaryPage() {
+function TasksSummaryInner() {
+  const searchParams = useSearchParams();
+  const priorityFilter = searchParams.get("priority");
+
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -64,10 +68,13 @@ export default function TasksSummaryPage() {
     void load();
   }, [load]);
 
-  const openTasks = useMemo(
-    () => tasks.filter((t) => isOpenTask(toHubTask(t))),
-    [tasks],
-  );
+  const openTasks = useMemo(() => {
+    let list = tasks.filter((t) => isOpenTask(toHubTask(t)));
+    if (priorityFilter) {
+      list = list.filter((t) => t.priority === priorityFilter);
+    }
+    return list;
+  }, [tasks, priorityFilter]);
 
   async function completeTimeTask(id: string) {
     setBusyId(id);
@@ -83,16 +90,21 @@ export default function TasksSummaryPage() {
     void load();
   }
 
+  const description = priorityFilter
+    ? `Open tasks filtered to priority ${priorityFilter}. Money completions belong on Money (confirm SAR).`
+    : "All open tasks. Money completions belong on Money (confirm SAR).";
+
   return (
     <div className="space-y-6">
-      <HubHeader
-        title="Summary"
-        description="All open tasks. Money completions belong on Money (confirm SAR)."
-      />
+      <HubHeader title="Summary" description={description} />
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       <ul className="divide-y divide-border border border-border">
         {openTasks.length === 0 ? (
-          <li className="px-3 py-4 text-sm text-text-muted">No open tasks.</li>
+          <li className="px-3 py-4 text-sm text-text-muted">
+            {priorityFilter
+              ? `No open ${priorityFilter} tasks.`
+              : "No open tasks."}
+          </li>
         ) : (
           openTasks.map((t) => (
             <li
@@ -127,5 +139,23 @@ export default function TasksSummaryPage() {
         )}
       </ul>
     </div>
+  );
+}
+
+export default function TasksSummaryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <HubHeader
+            title="Summary"
+            description="All open tasks. Money completions belong on Money (confirm SAR)."
+          />
+          <p className="text-sm text-text-muted">Loading…</p>
+        </div>
+      }
+    >
+      <TasksSummaryInner />
+    </Suspense>
   );
 }

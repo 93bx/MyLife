@@ -83,20 +83,31 @@ describe("isHistoryTask", () => {
 });
 
 describe("isOverdueTask", () => {
+  // 15:30 UTC = 18:30 Asia/Riyadh on the same calendar day.
   const now = new Date("2026-10-03T15:30:00.000Z");
 
-  it("is overdue when open and deadline UTC day is before now UTC day", () => {
+  it("is overdue when open and deadline day is before today in Asia/Riyadh", () => {
     expect(isOverdueTask(task({ deadline: "2026-10-02" }), now)).toBe(true);
+    // 20:00 UTC 2 Oct = 23:00 Riyadh 2 Oct (still previous Riyadh day).
     expect(
-      isOverdueTask(task({ deadline: "2026-10-02T23:59:59.000Z" }), now),
+      isOverdueTask(task({ deadline: "2026-10-02T20:00:00.000Z" }), now),
     ).toBe(true);
   });
 
-  it("is not overdue on the same UTC calendar day", () => {
+  it("is not overdue on the same Asia/Riyadh calendar day", () => {
     expect(isOverdueTask(task({ deadline: "2026-10-03" }), now)).toBe(false);
     expect(
       isOverdueTask(task({ deadline: "2026-10-03T00:00:00.000Z" }), now),
     ).toBe(false);
+  });
+
+  it("treats late UTC evening as the next Riyadh day (UTC+3)", () => {
+    // 22:00 UTC 3 Oct = 01:00 Riyadh 4 Oct → deadline 3 Oct is overdue.
+    const lateUtc = new Date("2026-10-03T22:00:00.000Z");
+    expect(isOverdueTask(task({ deadline: "2026-10-03" }), lateUtc)).toBe(true);
+    expect(isOverdueTask(task({ deadline: "2026-10-03" }), lateUtc, "UTC")).toBe(
+      false,
+    );
   });
 
   it("is not overdue when deadline is in the future or missing", () => {
@@ -110,6 +121,13 @@ describe("isOverdueTask", () => {
     ).toBe(false);
     expect(
       isOverdueTask(task({ status: "skipped", deadline: "2026-10-01" }), now),
+    ).toBe(false);
+  });
+
+  it("honors an explicit Profile timezone override", () => {
+    const lateUtc = new Date("2026-10-03T22:00:00.000Z");
+    expect(
+      isOverdueTask(task({ deadline: "2026-10-03" }), lateUtc, "UTC"),
     ).toBe(false);
   });
 });
