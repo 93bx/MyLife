@@ -25,12 +25,15 @@ export async function chatFree(
   for (const endpoint of endpoints.filter((e) => e.enabled)) {
     const url = `${endpoint.baseUrl.replace(/\/$/, "")}/chat/completions`;
     try {
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+      };
+      if (endpoint.apiKey.trim()) {
+        headers.Authorization = `Bearer ${endpoint.apiKey}`;
+      }
       const res = await fetchFn(url, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${endpoint.apiKey}`,
-          "content-type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           model: endpoint.model,
           messages,
