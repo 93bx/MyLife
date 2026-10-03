@@ -51,6 +51,8 @@ export default function TasksCapturePage() {
     ]);
     if (g.ok) setGoals(g.data.goals);
     if (p.ok) setProjects(p.data.projects);
+    if (!g.ok) setError(g.error);
+    else if (!p.ok) setError(p.error);
   }, []);
 
   useEffect(() => {
