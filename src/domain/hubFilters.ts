@@ -78,3 +78,21 @@ export function isSmsDeliveryProject(p: HubProject): boolean {
 export function isOpportunityProject(p: HubProject): boolean {
   return p.kind === "opportunity";
 }
+
+export function isCareerFacetTask(
+  t: HubTask,
+  project: HubProject | null | undefined,
+): boolean {
+  if (isCareerTask(t)) return true;
+  if (project == null) return false;
+  return isSmsDeliveryProject(project) || isOpportunityProject(project);
+}
+
+export function isDueOnDay(
+  t: HubTask,
+  dayKey: string,
+  timeZone: string = DEFAULT_TASK_TZ,
+): boolean {
+  if (!isOpenTask(t) || t.deadline == null) return false;
+  return calendarDayKey(t.deadline, timeZone) === dayKey;
+}

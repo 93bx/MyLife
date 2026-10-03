@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   CAREER_TAGS,
+  isCareerFacetTask,
   isCareerTask,
+  isDueOnDay,
   isFreelanceDeliveryProject,
   isHistoryTask,
   isMoneyTask,
@@ -163,5 +165,72 @@ describe("project hub filters", () => {
   it("isOpportunityProject matches kind opportunity", () => {
     expect(isOpportunityProject(project({ kind: "opportunity" }))).toBe(true);
     expect(isOpportunityProject(project({ kind: "delivery" }))).toBe(false);
+  });
+});
+
+describe("isCareerFacetTask", () => {
+  it("matches career tags without a project", () => {
+    expect(
+      isCareerFacetTask(task({ tags: ["cert"] }), null),
+    ).toBe(true);
+  });
+
+  it("matches SMS delivery project link without tags", () => {
+    expect(
+      isCareerFacetTask(
+        task({ projectId: "p1", tags: [] }),
+        project({ kind: "delivery", origin: "sms" }),
+      ),
+    ).toBe(true);
+  });
+
+  it("matches opportunity project link without tags", () => {
+    expect(
+      isCareerFacetTask(
+        task({ projectId: "p1", tags: [] }),
+        project({ kind: "opportunity", origin: "personal" }),
+      ),
+    ).toBe(true);
+  });
+
+  it("excludes freelance delivery without career tags", () => {
+    expect(
+      isCareerFacetTask(
+        task({ projectId: "p1", tags: [] }),
+        project({ kind: "delivery", origin: "personal" }),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat missing project as career via projectId alone", () => {
+    expect(
+      isCareerFacetTask(task({ projectId: "p1", tags: [] }), null),
+    ).toBe(false);
+  });
+});
+
+describe("isDueOnDay", () => {
+  it("matches open tasks whose deadline day equals dayKey", () => {
+    expect(
+      isDueOnDay(
+        task({ status: "open", deadline: "2026-10-03" }),
+        "2026-10-03",
+      ),
+    ).toBe(true);
+    expect(
+      isDueOnDay(
+        task({ status: "open", deadline: "2026-10-02" }),
+        "2026-10-03",
+      ),
+    ).toBe(false);
+    expect(
+      isDueOnDay(
+        task({ status: "done", deadline: "2026-10-03" }),
+        "2026-10-03",
+      ),
+    ).toBe(false);
+    expect(
+      isDueOnDay(task({ status: "open", deadline: null }), "2026-10-03"),
+    ).toBe(false);
   });
 });
