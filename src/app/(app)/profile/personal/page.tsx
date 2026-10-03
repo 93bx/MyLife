@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { HubHeader } from "@/components/HubHeader";
 import { apiJson } from "@/lib/apiClient";
 
 type ProfileForm = {
@@ -142,12 +143,10 @@ export default function ProfilePage() {
 
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-        <p className="text-sm text-text-muted">
-          Person facts — salary, buffer, hours, geo, payouts.
-        </p>
-      </div>
+      <HubHeader
+        title="Personal"
+        description="Person facts — name, summary, GitHub, notice, and shared profile fields."
+      />
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {saved ? <p className="text-sm text-accent">Saved.</p> : null}
