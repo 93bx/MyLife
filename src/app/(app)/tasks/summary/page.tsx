@@ -90,6 +90,17 @@ function TasksSummaryInner() {
     void load();
   }
 
+  async function skipTaskRow(id: string) {
+    setBusyId(id);
+    const res = await apiJson(`/api/tasks/${id}/skip`, { method: "POST" });
+    setBusyId(null);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    void load();
+  }
+
   const description = priorityFilter
     ? `Open tasks filtered to priority ${priorityFilter}. Money completions belong on Money (confirm SAR).`
     : "All open tasks. Money completions belong on Money (confirm SAR).";
@@ -124,16 +135,26 @@ function TasksSummaryInner() {
                   ) : null}
                 </div>
               </div>
-              {t.status === "open" && t.resources === "time" ? (
+              <div className="flex gap-2">
+                {t.resources === "time" ? (
+                  <button
+                    type="button"
+                    disabled={busyId === t.id}
+                    onClick={() => void completeTimeTask(t.id)}
+                    className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated disabled:opacity-50"
+                  >
+                    Complete
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   disabled={busyId === t.id}
-                  onClick={() => void completeTimeTask(t.id)}
+                  onClick={() => void skipTaskRow(t.id)}
                   className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated disabled:opacity-50"
                 >
-                  Complete
+                  Skip
                 </button>
-              ) : null}
+              </div>
             </li>
           ))
         )}

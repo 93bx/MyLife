@@ -50,6 +50,7 @@ export default function TasksOverduePage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [timezone, setTimezone] = useState(DEFAULT_TASK_TZ);
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [tasksRes, profileRes] = await Promise.all([
@@ -75,6 +76,31 @@ export default function TasksOverduePage() {
     const now = new Date();
     return tasks.filter((t) => isOverdueTask(toHubTask(t), now, timezone));
   }, [tasks, timezone]);
+
+  async function completeTimeTask(id: string) {
+    setBusyId(id);
+    const res = await apiJson(`/api/tasks/${id}/complete`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    setBusyId(null);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    void load();
+  }
+
+  async function skipTaskRow(id: string) {
+    setBusyId(id);
+    const res = await apiJson(`/api/tasks/${id}/skip`, { method: "POST" });
+    setBusyId(null);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    void load();
+  }
 
   return (
     <div className="space-y-6">
@@ -103,6 +129,26 @@ export default function TasksOverduePage() {
                     </>
                   ) : null}
                 </div>
+              </div>
+              <div className="flex gap-2">
+                {t.resources === "time" ? (
+                  <button
+                    type="button"
+                    disabled={busyId === t.id}
+                    onClick={() => void completeTimeTask(t.id)}
+                    className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated disabled:opacity-50"
+                  >
+                    Complete
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={busyId === t.id}
+                  onClick={() => void skipTaskRow(t.id)}
+                  className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated disabled:opacity-50"
+                >
+                  Skip
+                </button>
               </div>
             </li>
           ))
