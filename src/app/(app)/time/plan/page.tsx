@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { HubHeader } from "@/components/HubHeader";
 import {
   overloadWarning,
   partitionSmsFirst,
@@ -253,30 +254,28 @@ export default function PlanPage() {
   }
 
   const fieldClass =
-    "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent";
+    "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent focus-visible:ring-1 focus-visible:ring-accent";
 
   return (
-    <main className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Plan</h1>
-          <p className="text-sm text-text-muted">
-            Week intent, today (SMS then extra), floating pool.
-          </p>
-        </div>
-        <div className="rounded border border-border bg-bg-elevated px-4 py-3 text-sm">
-          <div>
-            Cash balance:{" "}
-            <strong className="font-mono">
-              {balanceSar === null ? "…" : formatSar(balanceSar)}
-            </strong>
+    <main className="space-y-6">
+      <HubHeader
+        title="Plan"
+        description="Week intent, today (SMS then extra), floating pool."
+        action={
+          <div className="rounded border border-border bg-bg-elevated px-4 py-3 text-sm">
+            <div>
+              Cash balance:{" "}
+              <strong className="font-mono">
+                {balanceSar === null ? "…" : formatSar(balanceSar)}
+              </strong>
+            </div>
+            <div>
+              Buffer:{" "}
+              <strong className="font-mono">{formatSar(bufferSar)}</strong>
+            </div>
           </div>
-          <div>
-            Buffer:{" "}
-            <strong className="font-mono">{formatSar(bufferSar)}</strong>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {showOverload ? (
         <div

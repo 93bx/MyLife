@@ -55,7 +55,7 @@ export default async function LoginPage({
             name="password"
             required
             autoFocus
-            className="rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent"
+            className="rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent focus-visible:ring-1 focus-visible:ring-accent"
           />
         </label>
         {error ? <p className="text-sm text-danger">{error}</p> : null}

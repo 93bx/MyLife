@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { HubHeader } from "@/components/HubHeader";
 import { apiJson } from "@/lib/apiClient";
 import { syncGoogleCalendarIfConnected } from "@/lib/google/clientSync";
 
@@ -94,7 +95,7 @@ function formatRange(startIso: string, endIso: string) {
 }
 
 const fieldClass =
-  "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent";
+  "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent focus-visible:ring-1 focus-visible:ring-accent";
 
 export default function CalendarPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
@@ -259,13 +260,11 @@ export default function CalendarPage() {
   }
 
   return (
-    <main className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
-        <p className="text-sm text-text-muted">
-          Merged Google events and MyLife blocks. Overlaps show both.
-        </p>
-      </div>
+    <main className="space-y-6">
+      <HubHeader
+        title="Calendar"
+        description="Merged Google events and MyLife blocks. Overlaps show both."
+      />
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
@@ -464,7 +463,7 @@ export default function CalendarPage() {
             <button
               type="submit"
               disabled={busy}
-              className="rounded border border-border px-3 py-2 text-sm hover:bg-bg disabled:opacity-50"
+              className="rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50"
             >
               Create
             </button>

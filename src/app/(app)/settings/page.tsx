@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { HubHeader } from "@/components/HubHeader";
 import { apiJson } from "@/lib/apiClient";
 
 type Endpoint = {
@@ -71,7 +72,16 @@ function formFromEndpoint(ep: Endpoint): EndpointForm {
 }
 
 const fieldClass =
-  "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent";
+  "rounded border border-border bg-bg-elevated px-3 py-2 text-text outline-none focus:border-accent focus-visible:ring-1 focus-visible:ring-accent";
+
+const primaryBtnClass =
+  "rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50";
+
+const secondaryBtnClass =
+  "rounded border border-border px-3 py-2 text-sm hover:bg-bg-elevated disabled:opacity-50";
+
+const ghostBtnClass =
+  "rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated";
 
 export default function SettingsPage() {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
@@ -266,14 +276,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-text-muted">
-          Free AI endpoint pool and machine flags. Seed starts empty — paste
-          keys here.
-        </p>
-      </div>
+    <main className="space-y-6">
+      <HubHeader
+        title="Settings"
+        description="Free AI endpoint pool and machine flags. Seed starts empty — paste keys here."
+      />
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {googleNotice ? (
@@ -333,10 +340,7 @@ export default function SettingsPage() {
             </button>
           </div>
         ) : (
-          <a
-            href="/api/google/oauth/start"
-            className="inline-block rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text"
-          >
+          <a href="/api/google/oauth/start" className={`inline-block ${primaryBtnClass}`}>
             Connect Google
           </a>
         )}
@@ -400,14 +404,14 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => startEdit(ep)}
-                    className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated"
+                    className={ghostBtnClass}
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => void toggleEnabled(ep)}
-                    className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated"
+                    className={ghostBtnClass}
                   >
                     {ep.enabled ? "Disable" : "Enable"}
                   </button>
@@ -528,7 +532,7 @@ export default function SettingsPage() {
             type="button"
             disabled={busy}
             onClick={() => void saveEndpoint()}
-            className="rounded bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-muted hover:text-text disabled:opacity-50"
+            className={primaryBtnClass}
           >
             {busy
               ? editingId
@@ -543,7 +547,7 @@ export default function SettingsPage() {
               type="button"
               disabled={busy}
               onClick={cancelEdit}
-              className="rounded border border-border px-3 py-2 text-sm hover:bg-bg-elevated disabled:opacity-50"
+              className={secondaryBtnClass}
             >
               Cancel
             </button>
