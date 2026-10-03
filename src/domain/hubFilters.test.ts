@@ -35,7 +35,7 @@ function project(overrides: Partial<HubProject> = {}): HubProject {
 }
 
 describe("CAREER_TAGS", () => {
-  it("lists provisional career tag vocabulary", () => {
+  it("lists locked career tag vocabulary", () => {
     expect(CAREER_TAGS).toEqual(["career", "cert", "brand", "sms", "apply"]);
   });
 });
