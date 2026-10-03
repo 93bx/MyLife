@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { HubHeader } from "@/components/HubHeader";
 import { apiJson } from "@/lib/apiClient";
 
 type GoalRow = {
@@ -27,20 +28,21 @@ export default function GoalsPage() {
     void load();
   }, [load]);
 
+  // No parked column in schema — list all goals as the active set.
+  const activeGoals = goals;
+
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Goals</h1>
-        <p className="text-sm text-text-muted">Active and inactive goals.</p>
-      </div>
+      <HubHeader title="Goals" description="Active goals." />
+      <p className="text-sm text-text-muted">Parked filter comes later</p>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       <ul className="divide-y divide-border border border-border">
-        {goals.length === 0 ? (
+        {activeGoals.length === 0 ? (
           <li className="px-3 py-4 text-sm text-text-muted">
             None yet — create when ready
           </li>
         ) : (
-          goals.map((g) => (
+          activeGoals.map((g) => (
             <li key={g.id} className="px-3 py-3 text-sm">
               <div className="font-medium">{g.title}</div>
               <div className="text-text-muted">

@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { HubHeader } from "@/components/HubHeader";
+import { isFreelanceDeliveryProject } from "@/domain/hubFilters";
 import { apiJson } from "@/lib/apiClient";
 
 type ProjectRow = {
@@ -32,22 +34,25 @@ export default function ProjectsPage() {
     void load();
   }, [load]);
 
+  const freelance = useMemo(
+    () => projects.filter(isFreelanceDeliveryProject),
+    [projects],
+  );
+
   return (
     <main className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-        <p className="text-sm text-text-muted">
-          Delivery and opportunity projects.
-        </p>
-      </div>
+      <HubHeader
+        title="Projects"
+        description="Freelance delivery projects (personal or hustle)."
+      />
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       <ul className="divide-y divide-border border border-border">
-        {projects.length === 0 ? (
+        {freelance.length === 0 ? (
           <li className="px-3 py-4 text-sm text-text-muted">
-            None yet — create when ready
+            No freelance projects yet
           </li>
         ) : (
-          projects.map((p) => (
+          freelance.map((p) => (
             <li key={p.id} className="px-3 py-3 text-sm">
               <div className="font-medium">{p.title}</div>
               <div className="text-text-muted">
