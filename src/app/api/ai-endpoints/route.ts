@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { aiEndpoints } from "@/db/schema";
+import {
+  isAbsoluteHttpUrl,
+  parseAiEndpointKind,
+  validateEndpointCreate,
+} from "@/lib/ai/endpointValidation";
 
 export async function GET() {
   const endpoints = await db
@@ -23,25 +28,14 @@ export async function POST(request: Request) {
     sortOrder?: number;
   };
 
-  if (!body.kind || !body.name || !body.baseUrl || !body.apiKey) {
-    return NextResponse.json(
-      { error: "kind, name, baseUrl, and apiKey are required" },
-      { status: 400 },
-    );
+  const parsed = validateEndpointCreate(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
   const [endpoint] = await db
     .insert(aiEndpoints)
-    .values({
-      kind: body.kind,
-      name: body.name,
-      baseUrl: body.baseUrl,
-      apiKey: body.apiKey,
-      model: body.model ?? null,
-      trainsOnPrompts: body.trainsOnPrompts ?? false,
-      enabled: body.enabled ?? true,
-      sortOrder: body.sortOrder ?? 0,
-    })
+    .values(parsed.value)
     .returning();
 
   return NextResponse.json({ endpoint }, { status: 201 });
@@ -62,6 +56,41 @@ export async function PATCH(request: Request) {
 
   if (!body.id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const [existing] = await db
+    .select()
+    .from(aiEndpoints)
+    .where(eq(aiEndpoints.id, body.id))
+    .limit(1);
+  if (!existing) {
+    return NextResponse.json({ error: "endpoint not found" }, { status: 404 });
+  }
+
+  const nextKind =
+    body.kind !== undefined
+      ? parseAiEndpointKind(body.kind)
+      : parseAiEndpointKind(existing.kind);
+  if (body.kind !== undefined && !nextKind) {
+    return NextResponse.json(
+      { error: "kind must be provider, aggregator, or local" },
+      { status: 400 },
+    );
+  }
+  if (body.baseUrl !== undefined && !isAbsoluteHttpUrl(String(body.baseUrl))) {
+    return NextResponse.json(
+      { error: "baseUrl must be an absolute http(s) URL" },
+      { status: 400 },
+    );
+  }
+  const nextKey =
+    body.apiKey !== undefined ? String(body.apiKey) : existing.apiKey;
+  const kindForKey = nextKind ?? "provider";
+  if (kindForKey !== "local" && !nextKey.trim()) {
+    return NextResponse.json(
+      { error: "apiKey is required for provider and aggregator" },
+      { status: 400 },
+    );
   }
 
   const patch: Record<string, unknown> = {};
