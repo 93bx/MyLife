@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { settings } from "@/db/schema";
+import { parseAiRoutingMode } from "@/lib/ai/orderEndpoints";
 
 export async function GET() {
   let [row] = await db.select().from(settings).limit(1);
@@ -16,6 +17,7 @@ export async function PATCH(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
     splitBank?: boolean;
     agentMuted?: boolean;
+    aiRoutingMode?: string;
   };
 
   let [existing] = await db.select().from(settings).limit(1);
@@ -24,9 +26,26 @@ export async function PATCH(request: Request) {
     existing = created;
   }
 
-  const patch: { splitBank?: boolean; agentMuted?: boolean } = {};
+  const patch: {
+    splitBank?: boolean;
+    agentMuted?: boolean;
+    aiRoutingMode?: string;
+  } = {};
   if (typeof body.splitBank === "boolean") patch.splitBank = body.splitBank;
   if (typeof body.agentMuted === "boolean") patch.agentMuted = body.agentMuted;
+  if (body.aiRoutingMode !== undefined) {
+    const mode = parseAiRoutingMode(body.aiRoutingMode);
+    if (!mode) {
+      return NextResponse.json(
+        {
+          error:
+            "aiRoutingMode must be local-first, cloud-first, local-only, or cloud-only",
+        },
+        { status: 400 },
+      );
+    }
+    patch.aiRoutingMode = mode;
+  }
 
   const [row] = await db
     .update(settings)

@@ -44,6 +44,7 @@ export const settings = pgTable("settings", {
   id: uuid("id").primaryKey().defaultRandom(),
   splitBank: boolean("split_bank").notNull().default(false),
   agentMuted: boolean("agent_muted").notNull().default(false),
+  aiRoutingMode: text("ai_routing_mode").notNull().default("cloud-first"),
 });
 
 export const aiEndpoints = pgTable("ai_endpoints", {
